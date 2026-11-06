@@ -1,5 +1,5 @@
 import { Component, useEffect, useMemo, useRef, useState } from 'react'
-import { Bounds, Center, Html, useGLTF } from '@react-three/drei'
+import { Bounds, Center, Html, useBounds, useGLTF } from '@react-three/drei'
 import { Box3, Vector3 } from 'three'
 import { clone } from 'three/addons/utils/SkeletonUtils.js'
 import { createModelParts } from '../../data/modelParts.js'
@@ -92,9 +92,26 @@ class ModelLoadBoundary extends Component {
   }
 }
 
+function FocusSelectedMesh({ scene, selectedMeshId }) {
+  const bounds = useBounds()
+
+  useEffect(() => {
+    if (!selectedMeshId) return undefined
+
+    const frame = window.requestAnimationFrame(() => {
+      const mesh = scene.getObjectByProperty('uuid', selectedMeshId)
+      if (mesh) bounds.refresh(mesh).fit().clip()
+    })
+
+    return () => window.cancelAnimationFrame(frame)
+  }, [bounds, scene, selectedMeshId])
+
+  return null
+}
+
 function UploadedModelScene({ modelName, url, selectedMeshId, onSelectMesh, onPartsChange, appearanceOverrides }) {
   const gltf = useGLTF(url)
-  const rotation = modelName?.toLowerCase() === 'gasturbinecut.glb' ? [0, -2 * Math.PI / 1.5, 0] : [0, 0, 0]
+  const rotation = modelName?.toLowerCase() === 'gasturbinecutaway.glb' ? [0, -2 * Math.PI / 3, 0] : [0, 0, 0]
   const scene = useMemo(() => {
     const clonedScene = clone(gltf.scene)
     clonedScene.traverse((node) => {
@@ -191,6 +208,7 @@ function UploadedModelScene({ modelName, url, selectedMeshId, onSelectMesh, onPa
     <Bounds key={selectedMeshId || 'full-model'} fit clip observe margin={1.2}>
       <Center>
         <group rotation={rotation}>
+          <FocusSelectedMesh scene={scene} selectedMeshId={selectedMeshId} />
           <primitive
             object={scene}
             onPointerOver={handlePointerOver}
