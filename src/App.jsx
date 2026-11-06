@@ -105,6 +105,8 @@ function MainScene({ models, activeModelId, onSelectModel, onDeleteModel, onOpen
                   <div><span>FINISH</span><strong>{selectedMesh.finish}</strong></div>
                   <div><span>DIMENSIONS</span><strong>{selectedMesh.dimensions}</strong></div>
                   <div><span>DISCIPLINE</span><strong>{selectedMesh.category.split(' / ')[0]}</strong></div>
+                  <div><span>ENGINE TYPE</span><strong>{selectedMesh.engineType}</strong></div>
+                  <div><span>FLOW PATH</span><strong>{selectedMesh.flowPath}</strong></div>
                 </div>
                 {selectedMesh.appearance && (
                   <MaterialAppearanceControls

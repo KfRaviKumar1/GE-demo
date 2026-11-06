@@ -71,6 +71,8 @@ export default function NavigationOverlay({ mode, part, onBack }) {
               <div className="part-spec"><span className="meta-label">FINISH</span><span className="meta-value">{part.finish}</span></div>
               <div className="part-spec"><span className="meta-label">DIMENSIONS</span><span className="meta-value">{part.dimensions}</span></div>
               <div className="part-spec"><span className="meta-label">DISCIPLINE</span><span className="meta-value">{part.category.split(' / ')[0]}</span></div>
+              <div className="part-spec"><span className="meta-label">ENGINE TYPE</span><span className="meta-value">{part.engineType}</span></div>
+              <div className="part-spec"><span className="meta-label">FLOW PATH</span><span className="meta-value">{part.flowPath}</span></div>
             </div>
           </section>
           <div className="part-index"><span>{part.number}</span> / {String(modelParts.length).padStart(2, '0')} COMPONENTS</div>
