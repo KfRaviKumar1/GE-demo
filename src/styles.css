@@ -132,7 +132,7 @@ a { text-decoration: none; }
   top: 0;
   left: 0;
   width: 100%;
-  height: 58px;
+  height: 38px;
   border-bottom: 1px solid var(--line);
   background: rgba(250,249,246,.94);
   content: "";
@@ -239,7 +239,7 @@ a { text-decoration: none; }
 .scene-title {
   position: absolute;
   z-index: 5;
-  top: 17%;
+  top: 6%;
   left: 6%;
   width: min(390px, 48%);
   padding: 10px 16px 14px;
@@ -490,18 +490,6 @@ a { text-decoration: none; }
 .model-switcher-controls button { display: grid; width: 34px; height: 34px; flex: 0 0 auto; place-items: center; color: #62635d; background: #fff; border: 1px solid #e1e1dc; border-radius: 5px; }
 .model-switcher-controls button:hover { color: #171815; border-color: #9c9b91; }
 
-.uploaded-model-title {
-  position: absolute;
-  z-index: 5;
-  top: 16%;
-  left: 3.5%;
-  width: min(420px, 48%);
-  padding: 14px 16px;
-  background: linear-gradient(90deg, rgba(245,244,240,.97), rgba(245,244,240,.84) 76%, transparent);
-  pointer-events: none;
-}
-.uploaded-model-title h1 { overflow: hidden; margin: 13px 0 7px; color: #242520; font-family: var(--display); font-size: clamp(24px, 3.1vw, 42px); font-weight: 500; letter-spacing: -.06em; text-overflow: ellipsis; white-space: nowrap; }
-.uploaded-model-title p { margin: 0; color: #77786f; font-size: 11px; }
 .uploaded-model-panel {
   position: absolute;
   z-index: 5;
@@ -551,7 +539,11 @@ a { text-decoration: none; }
 .uploaded-model-empty { color: #85857c; font-size: 10px; }
 .uploaded-model-back { display: inline-flex; min-height: 32px; align-items: center; gap: 6px; margin-top: 8px; padding: 0; color: #44453e; background: transparent; border: 0; font-size: 10px; }
 .uploaded-model-back:hover { color: var(--accent); }
-.model-part-pin { max-width: 190px; overflow: hidden; padding: 6px 9px; color: #30312c; background: rgba(250,249,246,.96); border: 1px solid rgba(189,137,83,.62); border-radius: 4px; box-shadow: 0 4px 14px rgba(37,35,28,.14); font-size: 10px; white-space: nowrap; cursor: pointer; }
+.uploaded-model-marker { position: relative; display: grid; width: 34px; height: 34px; place-items: center; padding: 4px; color: #282923; background: rgba(250,249,246,.94); border: 1px solid rgba(49,49,43,.18); border-radius: 50%; box-shadow: 0 5px 22px rgba(37,35,28,.09); backdrop-filter: blur(8px); cursor: pointer; }
+.uploaded-model-marker:hover, .uploaded-model-marker-active, .uploaded-model-marker:focus-visible { border-color: rgba(189,137,83,.85); box-shadow: 0 7px 26px rgba(37,35,28,.17); outline: none; }
+.uploaded-model-marker-number { display: grid; width: 24px; height: 24px; place-items: center; color: white; background: #a77a52; border-radius: 50%; font-family: var(--mono); font-size: 9px; }
+.uploaded-model-marker-label { position: absolute; top: 50%; left: calc(100% + 7px); display: none; max-width: 180px; overflow: hidden; padding: 6px 9px; color: #30312c; background: rgba(250,249,246,.97); border: 1px solid rgba(189,137,83,.5); border-radius: 4px; box-shadow: 0 4px 14px rgba(37,35,28,.14); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; transform: translateY(-50%); pointer-events: none; }
+.uploaded-model-marker:hover .uploaded-model-marker-label, .uploaded-model-marker:focus-visible .uploaded-model-marker-label { display: block; }
 
 .upload-modal-backdrop { position: fixed; z-index: 20; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(25,26,23,.42); backdrop-filter: blur(3px); }
 .upload-modal { width: min(520px, 100%); max-height: min(90vh, 760px); overflow: auto; padding: 23px; background: #fff; border: 1px solid #e1e1df; border-radius: 12px; box-shadow: 0 24px 80px rgba(24,25,22,.22); }
@@ -600,11 +592,11 @@ a { text-decoration: none; }
   .admin-sidebar { flex-basis: 210px; }
   .admin-sidebar-collapsed { flex-basis: 58px; }
   .workspace-topbar { flex-basis: 53px; }
-  .scene-page::before { height: 52px; }
+  .scene-page::before { height: 36px; }
   .scene-page .breadcrumb { top: 20px; left: 4%; }
   .scene-page .nav-actions { top: 8px; right: 4%; }
   .breadcrumb { display: none; }
-  .scene-title { top: 14%; left: 4%; width: min(360px, 54%); }
+  .scene-title { top: 6%; left: 4%; width: min(360px, 54%); }
   .scene-title h1 { font-size: clamp(44px, 9vw, 65px); }
   .object-index { top: 12%; right: 3%; width: 164px; max-height: 57%; }
   .scene-meta { bottom: 11%; left: 7%; flex-direction: column; gap: 15px; }
@@ -637,9 +629,6 @@ a { text-decoration: none; }
   .topbar-upload svg { width: 12px; height: 12px; }
   .workspace-topbar-right > svg { display: none; }
   .model-switcher { top: 58px; right: 4%; bottom: auto; width: min(280px, 65vw); padding: 8px; }
-  .uploaded-model-title { top: 17%; left: 3%; width: 56%; padding: 10px 8px; }
-  .uploaded-model-title h1 { font-size: clamp(18px, 5vw, 27px); }
-  .uploaded-model-title p { font-size: 9px; }
   .uploaded-model-panel { top: auto; right: 4%; bottom: 11%; width: 43%; max-height: 55%; padding: 8px; }
   .uploaded-part-details { max-height: 52%; padding: 8px 1px; }
   .uploaded-part-details h2 { font-size: 14px; }
@@ -653,7 +642,7 @@ a { text-decoration: none; }
   .uploaded-model-part strong { font-size: 9px; }
   .uploaded-model-back { min-height: 27px; font-size: 9px; }
   .upload-modal { padding: 17px; }
-  .scene-page::before { height: 46px; }
+  .scene-page::before { height: 32px; }
   .scene-page .nav-actions { top: 5px; }
   .brand-lockup { gap: 8px; font-size: 9px; }
   .brand-mark { width: 23px; height: 23px; }
@@ -661,7 +650,7 @@ a { text-decoration: none; }
   .edition-tag { display: none; }
   .back-button { font-size: 8px; }
   .scene-page { min-height: 600px; }
-  .scene-title { top: 12%; left: 4%; width: 58%; padding: 8px 9px 10px; }
+  .scene-title { top: 5%; left: 4%; width: 58%; padding: 8px 9px 10px; }
   .scene-title h1 { margin-top: 14px; font-size: clamp(34px, 9.5vw, 39px); }
   .scene-title p { font-size: 10px; }
   .object-index { top: auto; right: 5%; bottom: 12%; width: 150px; max-height: 48%; padding: 7px 0; }

@@ -15,6 +15,26 @@ import UploadModal from './components/ui/UploadModal.jsx'
 import WorkspacePage from './components/ui/WorkspacePage.jsx'
 import { getPart, modelParts } from './data/modelParts.js'
 
+function getModelDisplayName(fileName) {
+  return fileName.replace(/\.(glb|gltf)$/i, '')
+}
+
+function ModelTitle({ name, partCount }) {
+  const [lead, ...rest] = getModelDisplayName(name).split(/\s+/)
+
+  return (
+    <section className="scene-title uploaded-model-title">
+      <div className="eyebrow"><span className="eyebrow-mark" /> INDUSTRIAL POWER SYSTEMS</div>
+      <h1>{lead} {rest.length > 0 && <span>{rest.join(' ')}</span>}</h1>
+      <div className="title-rule" />
+      <p>
+        Inside the model.<br />
+        {partCount ? `Explore ${partCount} numbered ${partCount === 1 ? 'part' : 'parts'} in detail.` : 'Preparing model parts…'}
+      </p>
+    </section>
+  )
+}
+
 function MainScene({ models, activeModelId, onSelectModel, onDeleteModel, onOpenUpload }) {
   const navigate = useNavigate()
   const activeModel = models.find(({ id }) => id === activeModelId)
@@ -53,6 +73,7 @@ function MainScene({ models, activeModelId, onSelectModel, onDeleteModel, onOpen
         {activeModel ? (
           <DynamicModelViewer
             key={activeModel.id}
+            modelName={activeModel.name}
             url={activeModel.url}
             selectedMeshId={selectedMeshId}
             onSelectMesh={selectMesh}
@@ -72,11 +93,7 @@ function MainScene({ models, activeModelId, onSelectModel, onDeleteModel, onOpen
       />
       {activeModel ? (
         <>
-          <section className="uploaded-model-title">
-            <span className="eyebrow"><span className="eyebrow-mark" /> UPLOADED MODEL</span>
-            <h1>{activeModel.name}</h1>
-            <p>Click a mesh or choose a part to inspect it.</p>
-          </section>
+          <ModelTitle name={activeModel.name} partCount={meshNodes.length} />
           <aside className="uploaded-model-panel">
             <header><span>MODEL PARTS</span><span>{meshNodes.length}</span></header>
             {selectedMesh && (
@@ -100,13 +117,13 @@ function MainScene({ models, activeModelId, onSelectModel, onDeleteModel, onOpen
                 )}
               </section>
             )}
-            {meshNodes.length ? (
+            {meshNodes.length > 0 && !selectedMeshId && (
               <div className="uploaded-model-parts">
                 {meshNodes.map((mesh, index) => (
                   <button
                     type="button"
                     key={mesh.meshId}
-                    className={selectedMeshId === mesh.meshId ? 'uploaded-model-part selected' : 'uploaded-model-part'}
+                    className="uploaded-model-part"
                     onClick={() => selectMesh(mesh.meshId)}
                   >
                     <span>{String(index + 1).padStart(2, '0')}</span>
@@ -114,7 +131,8 @@ function MainScene({ models, activeModelId, onSelectModel, onDeleteModel, onOpen
                   </button>
                 ))}
               </div>
-            ) : <p className="uploaded-model-empty">
+            )}
+            {meshNodes.length === 0 && <p className="uploaded-model-empty">
               {meshRegistry.modelId === activeModel.id ? 'No mesh parts were found in this model.' : 'Loading model parts…'}
             </p>}
             {selectedMeshId && (

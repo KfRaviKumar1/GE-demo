@@ -92,8 +92,9 @@ class ModelLoadBoundary extends Component {
   }
 }
 
-function UploadedModelScene({ url, selectedMeshId, onSelectMesh, onPartsChange, appearanceOverrides }) {
+function UploadedModelScene({ modelName, url, selectedMeshId, onSelectMesh, onPartsChange, appearanceOverrides }) {
   const gltf = useGLTF(url)
+  const rotation = modelName?.toLowerCase() === 'gasturbinecut.glb' ? [0, -2 * Math.PI / 1.5, 0] : [0, 0, 0]
   const scene = useMemo(() => {
     const clonedScene = clone(gltf.scene)
     clonedScene.traverse((node) => {
@@ -105,9 +106,7 @@ function UploadedModelScene({ url, selectedMeshId, onSelectMesh, onPartsChange, 
     return clonedScene
   }, [gltf.scene])
   const meshes = useMemo(() => getMeshNodes(scene), [scene])
-  const [hoveredMeshId, setHoveredMeshId] = useState(null)
   const hoverTimeout = useRef(null)
-  const hoveredMeshRef = useRef(null)
 
   useEffect(() => {
     registerUploadedScene(url, gltf.scene)
@@ -169,51 +168,53 @@ function UploadedModelScene({ url, selectedMeshId, onSelectMesh, onPartsChange, 
   const handlePointerOver = (event) => {
     event.stopPropagation()
     window.clearTimeout(hoverTimeout.current)
-    hoveredMeshRef.current = event.object.uuid
-    setHoveredMeshId(event.object.uuid)
     document.body.style.cursor = 'pointer'
   }
 
   const handlePointerOut = (event) => {
     event.stopPropagation()
-    const meshId = event.object.uuid
     hoverTimeout.current = window.setTimeout(() => {
-      if (hoveredMeshRef.current !== meshId) return
-      hoveredMeshRef.current = null
-      setHoveredMeshId(null)
       document.body.style.cursor = 'auto'
     }, 120)
   }
 
   const handleClick = (event) => {
     event.stopPropagation()
+    if (selectedMeshId) return
     if (event.delta > 5) return
     window.clearTimeout(hoverTimeout.current)
-    hoveredMeshRef.current = null
-    setHoveredMeshId(null)
     document.body.style.cursor = 'auto'
     onSelectMesh(event.object.uuid)
   }
 
-  const pinNodes = selectedMeshId
-    ? []
-    : meshes.filter(({ meshId }) => meshId === hoveredMeshId)
-
   return (
     <Bounds key={selectedMeshId || 'full-model'} fit clip observe margin={1.2}>
       <Center>
-        <group>
+        <group rotation={rotation}>
           <primitive
             object={scene}
             onPointerOver={handlePointerOver}
             onPointerOut={handlePointerOut}
             onClick={handleClick}
           />
-          {pinNodes.map((mesh) => (
-            <Html key={mesh.meshId} position={mesh.coordinates} center distanceFactor={10} pointerEvents="none">
-              <span className="model-part-pin" aria-hidden="true">
-                {mesh.name}
-              </span>
+          {!selectedMeshId && meshes.map((mesh) => (
+            <Html key={mesh.meshId} position={mesh.coordinates} center distanceFactor={10} zIndexRange={[20, 0]}>
+              <button
+                type="button"
+                className={`uploaded-model-marker ${selectedMeshId === mesh.meshId ? 'uploaded-model-marker-active' : ''}`}
+                aria-label={`Select part ${mesh.number}: ${mesh.name}`}
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  window.clearTimeout(hoverTimeout.current)
+                  document.body.style.cursor = 'auto'
+                  onSelectMesh(mesh.meshId)
+                }}
+              >
+                <span className="uploaded-model-marker-number">{mesh.number}</span>
+                <span className="uploaded-model-marker-label">{mesh.name}</span>
+              </button>
             </Html>
           ))}
         </group>
