@@ -36,16 +36,24 @@ The sample mapping in `src/data/modelParts.js` includes nine assemblies, from th
 
 ## Workspace navigation
 
-The collapsible sidebar links to the dashboard, model library, upload selection, 3D viewer, component categories, project pages, and administration options. Component rows open interactive detail routes. The upload screen lets you select a local GLB/glTF file; it is a front-end demonstration and does not send files to a server.
+The collapsible sidebar links to the dashboard, model library, upload dialog, 3D viewer, component categories, project pages, and administration options. Component rows open interactive detail routes. Use **Upload models** or **3D Models → Upload Model** to select or drop multiple `.glb`/`.gltf` files, then use the viewer's model selector to switch between them. Meshes can be selected in the viewport or part list to isolate and frame them; use **Back to full model** to restore the complete assembly.
+
+Uploads use browser object URLs and remain local to the current page session; they are not sent to a server or persisted after reload. For each uploaded model, the viewer traverses its meshes and generates `modelParts` records (mesh name, dimensions, material names, and selection ID) through `createModelParts` in `src/data/modelParts.js`. These detected mesh parts can be selected in the part list or the viewport and isolated. The selected part's material appearance panel exposes base/emissive color, roughness, metalness, opacity, wireframe, and supported physical-material controls. Existing texture maps are indicated; texture images themselves remain those embedded in the model. The built-in turbine demo keeps its curated part descriptions and hotspots. URLs are revoked and cached Three.js resources disposed when a model is removed or the app unmounts. A `.gltf` file must embed its buffers and textures; for portability, use a self-contained `.glb`.
+
+The viewer dependencies are already declared in `package.json`: React, Three.js, `@react-three/fiber`, and `@react-three/drei`. Install and run with `npm install` and `npm run dev`. Styling uses the existing CSS design system in `src/styles.css`; Tailwind is not required.
 
 ## Project map
 
 - `src/App.jsx` — routes, page transitions, model-view composition.
 - `src/components/3d/CanvasContainer.jsx` — WebGL canvas, suspense fallback, camera controls.
+- `src/components/3d/DynamicModelViewer.jsx` — uploaded GLTF loading, mesh selection, isolation, and bounds fitting.
+- `src/components/3d/modelResources.js` — GLTF cache clearing and GPU resource disposal.
 - `src/components/3d/LightingEnvironment.jsx` — shared lights, city environment, contact shadows.
 - `src/components/3d/MainModel.jsx` — main GLB/procedural model, mesh interactions, hotspots.
 - `src/components/3d/SubPartModel.jsx` — per-part GLB/procedural detail model and bounds fitting.
 - `src/components/ui/Hotspot.jsx` — 3D-pinned HTML annotations.
 - `src/components/ui/NavigationOverlay.jsx` — breadcrumbs and persistent navigation.
+- `src/components/ui/ModelSwitcher.jsx` — active model selection and removal.
+- `src/components/ui/UploadModal.jsx` — multi-file GLB/glTF upload and drag-and-drop.
 - `src/components/ui/AdminSidebar.jsx` — collapsible workspace sidebar and navigation.
 - `src/components/ui/WorkspacePage.jsx` — clickable workspace sections and local model selection.

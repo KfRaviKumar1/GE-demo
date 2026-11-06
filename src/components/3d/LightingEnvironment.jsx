@@ -10,7 +10,7 @@ export default function LightingEnvironment() {
         castShadow
         position={[4, 7, 5]}
         intensity={3.1}
-        shadow-mapSize={[1024, 1024]}
+        shadow-mapSize={[512, 512]}
         shadow-camera-left={-5}
         shadow-camera-right={5}
         shadow-camera-top={5}
@@ -26,7 +26,8 @@ export default function LightingEnvironment() {
         scale={8}
         blur={2.8}
         far={4}
-        resolution={512}
+        resolution={256}
+        frames={1}
         color="#555149"
       />
     </>

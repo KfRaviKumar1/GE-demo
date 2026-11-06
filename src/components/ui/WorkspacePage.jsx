@@ -1,6 +1,5 @@
-import { useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
-import { ArrowRight, Box, CheckCircle2, FileUp, FolderKanban, Layers3, Upload } from 'lucide-react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { ArrowRight, Box, FileUp, FolderKanban, Layers3, Trash2, Upload } from 'lucide-react'
 import { modelParts } from '../../data/modelParts.js'
 
 const pages = {
@@ -86,26 +85,9 @@ function ComponentList() {
   )
 }
 
-function UploadCard() {
-  const [fileName, setFileName] = useState('')
-
-  return (
-    <label className="upload-dropzone">
-      {fileName ? <CheckCircle2 size={26} /> : <FileUp size={26} />}
-      <strong>{fileName || 'Choose a 3D model to upload'}</strong>
-      <span>{fileName ? 'Selected on this device' : 'GLB or glTF model files'}</span>
-      <input
-        type="file"
-        accept=".glb,.gltf,model/gltf-binary,model/gltf+json"
-        onChange={(event) => setFileName(event.target.files?.[0]?.name ?? '')}
-      />
-      <span className="upload-action"><Upload size={15} /> Browse files</span>
-    </label>
-  )
-}
-
-export default function WorkspacePage() {
+export default function WorkspacePage({ models = [], onOpenUpload, onSelectModel, onDeleteModel }) {
   const { pathname } = useLocation()
+  const navigate = useNavigate()
   const page = pages[pathname] ?? pages['/workspace/dashboard']
   const isUpload = pathname === '/models/upload'
   const isComponents = pathname.startsWith('/components')
@@ -137,8 +119,10 @@ export default function WorkspacePage() {
         <section className="workspace-card">
           <div className="workspace-card-icon"><FileUp size={20} /></div>
           <h2>Upload a 3D model</h2>
-          <p>Choose a gas turbine model in GLB or glTF format.</p>
-          <UploadCard />
+          <p>Choose one or more local models in GLB or glTF format.</p>
+          <button type="button" className="workspace-primary-link" onClick={onOpenUpload}>
+            <Upload size={15} /> Choose model files
+          </button>
           <p className="upload-note">Selecting a file does not publish or store it on a server.</p>
         </section>
       ) : (
@@ -155,6 +139,24 @@ export default function WorkspacePage() {
             <div className="workspace-library-meta">
               <span><strong>03</strong> components</span>
               <span><strong>GLB</strong> supported format</span>
+            </div>
+          )}
+          {isLibrary && (
+            <div className="workspace-model-list">
+              <div className="workspace-model-row">
+                <span className="workspace-model-icon"><Box size={16} /></span>
+                <span className="workspace-component-copy"><strong>Gas Turbine 01</strong><small>Interactive demo model</small></span>
+                <button type="button" className="workspace-model-open" onClick={() => { onSelectModel(null); navigate('/') }}>Open</button>
+              </div>
+              {models.map((model) => (
+                <div className="workspace-model-row" key={model.id}>
+                  <span className="workspace-model-icon"><Box size={16} /></span>
+                  <span className="workspace-component-copy"><strong title={model.name}>{model.name}</strong><small>Uploaded for this session</small></span>
+                  <button type="button" className="workspace-model-open" onClick={() => { onSelectModel(model.id); navigate('/') }}>Open</button>
+                  <button type="button" className="workspace-model-delete" aria-label={`Remove ${model.name}`} onClick={() => onDeleteModel(model.id)}><Trash2 size={15} /></button>
+                </div>
+              ))}
+              <button type="button" className="workspace-model-add" onClick={onOpenUpload}><Upload size={15} /> Add models</button>
             </div>
           )}
         </section>

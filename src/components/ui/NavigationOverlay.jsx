@@ -11,13 +11,15 @@ export default function NavigationOverlay({ mode, part, onBack }) {
       </Link>
 
       <div className="breadcrumb">
-        <span>OBJECTS</span>
+        <Link className="breadcrumb-link" to="/models/library">OBJECTS</Link>
         <ChevronRight size={12} />
-        <span>GAS TURBINE 01</span>
+        <Link className="breadcrumb-link" to="/">GAS TURBINE 01</Link>
         {mode === 'detail' && (
           <>
             <ChevronRight size={12} />
-            <span className="breadcrumb-current">{part.name.toUpperCase()}</span>
+            <Link className="breadcrumb-link breadcrumb-current" to={`/part/${part.id}`} aria-current="page">
+              {part.name.toUpperCase()}
+            </Link>
           </>
         )}
       </div>

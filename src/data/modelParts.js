@@ -111,6 +111,44 @@ export const modelParts = [
   },
 ]
 
+function formatMeshName(name) {
+  return name
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b[a-z]/g, (letter) => letter.toUpperCase())
+}
+
+export function createModelParts(meshes) {
+  return meshes.map((mesh, index) => {
+    const materialNames = (Array.isArray(mesh.material) ? mesh.material : [mesh.material])
+      .map((material) => material?.name?.trim())
+      .filter(Boolean)
+    const name = formatMeshName(mesh.name || `Mesh ${index + 1}`)
+    const knownPart = getPartForMesh(mesh.name)
+
+    return {
+      ...knownPart,
+      id: mesh.id,
+      meshId: mesh.id,
+      number: String(index + 1).padStart(2, '0'),
+      name: knownPart?.name ?? name,
+      category: knownPart?.category ?? 'Uploaded model / mesh',
+      description: knownPart?.description ?? 'Mesh detected in the uploaded 3D model.',
+      material: knownPart?.material
+        ?? (materialNames.length ? [...new Set(materialNames)].join(', ') : 'Defined by model geometry'),
+      finish: knownPart?.finish ?? 'Defined by model materials',
+      dimensions: knownPart?.dimensions
+        ?? mesh.size?.map((value) => `${value.toFixed(2)} units`).join(' × ')
+        ?? 'Not available',
+      coordinates: mesh.position,
+      appearance: mesh.appearance,
+      meshNames: mesh.name ? [mesh.name] : [],
+    }
+  })
+}
+
 export const getPart = (id) => modelParts.find((part) => part.id === id)
 
 export const getPartForMesh = (name = '') =>
