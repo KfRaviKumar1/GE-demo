@@ -1,9 +1,105 @@
-import { Component, useEffect, useMemo, useRef, useState } from 'react'
+import { Component, useEffect, useMemo, useRef } from 'react'
 import { Bounds, Center, Html, useBounds, useGLTF } from '@react-three/drei'
+import { useFrame } from '@react-three/fiber'
 import { Box3, Vector3 } from 'three'
 import { clone } from 'three/addons/utils/SkeletonUtils.js'
 import { createModelParts } from '../../data/modelParts.js'
 import { registerUploadedScene } from './modelResources.js'
+
+const HOTSPOT_OFFSETS = [
+  [0, 0],
+  [0, -42], [42, 0], [0, 42], [-42, 0],
+  [30, -30], [30, 30], [-30, 30], [-30, -30],
+  [0, -60], [60, 0], [0, 60], [-60, 0],
+]
+
+function UploadedModelHotspots({ meshes, onSelect, hoverTimeout }) {
+  const markerRefs = useRef([])
+  const connectorRefs = useRef([])
+  const previousAnchors = useRef(null)
+  const stableFrames = useRef(0)
+  const layoutComplete = useRef(false)
+
+  useFrame(() => {
+    if (layoutComplete.current) return
+
+    const markers = markerRefs.current.slice(0, meshes.length)
+    if (markers.some((marker) => !marker?.parentElement)) return
+
+    const anchors = markers.map((marker) => {
+      const bounds = marker.parentElement.getBoundingClientRect()
+      return [bounds.left + bounds.width / 2, bounds.top + bounds.height / 2]
+    })
+    const isStable = previousAnchors.current?.every(([x, y], index) =>
+      Math.hypot(anchors[index][0] - x, anchors[index][1] - y) < 0.1,
+    )
+    stableFrames.current = isStable ? stableFrames.current + 1 : 0
+    previousAnchors.current = anchors
+    if (stableFrames.current < 30) return
+
+    const placed = []
+    markers.forEach((marker, index) => {
+      const [anchorX, anchorY] = anchors[index]
+      const overlaps = placed.some(({ x, y }) => Math.hypot(anchorX - x, anchorY - y) < 40)
+      const [offsetX, offsetY] = overlaps
+        ? HOTSPOT_OFFSETS.slice(1).find(([x, y]) =>
+          placed.every(({ x: placedX, y: placedY }) =>
+            Math.hypot(anchorX + x - placedX, anchorY + y - placedY) >= 40,
+          ),
+        ) ?? [0, 0]
+        : [0, 0]
+      if (offsetX || offsetY) marker.style.translate = `${offsetX}px ${offsetY}px`
+
+      const connector = connectorRefs.current[index]
+      if (connector) {
+        connector.setAttribute('x2', String(offsetX))
+        connector.setAttribute('y2', String(offsetY))
+        connector.style.visibility = offsetX || offsetY ? 'visible' : 'hidden'
+      }
+
+      placed.push({ x: anchorX + offsetX, y: anchorY + offsetY })
+    })
+    layoutComplete.current = true
+  })
+
+  return meshes.map((mesh, index) => (
+    <Html key={mesh.meshId} position={mesh.coordinates} center distanceFactor={10} zIndexRange={[20, 0]}>
+      <div style={{ position: 'relative', width: 0, height: 0 }}>
+        <svg
+          aria-hidden="true"
+          style={{ position: 'absolute', inset: 0, overflow: 'visible', pointerEvents: 'none' }}
+        >
+          <line
+            ref={(line) => { connectorRefs.current[index] = line }}
+            x1="0"
+            y1="0"
+            stroke="rgba(167,122,82,.85)"
+            strokeWidth="1.5"
+            style={{ visibility: 'hidden' }}
+          />
+        </svg>
+        <button
+          ref={(button) => { markerRefs.current[index] = button }}
+          type="button"
+          className="uploaded-model-marker"
+          style={{ position: 'absolute', left: -17, top: -17 }}
+          aria-label={`Select part ${mesh.number}: ${mesh.name}`}
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => {
+            event.preventDefault()
+            event.stopPropagation()
+            window.clearTimeout(hoverTimeout.current)
+            document.body.style.cursor = 'auto'
+            onSelect(mesh.meshId)
+          }}
+        >
+          <span className="uploaded-model-marker-number">{mesh.number}</span>
+          <span className="uploaded-model-marker-label">{mesh.name}</span>
+        </button>
+      </div>
+    </Html>
+  ))
+}
 
 function getMeshNodes(scene) {
   scene.updateMatrixWorld(true)
@@ -96,11 +192,11 @@ function FocusSelectedMesh({ scene, selectedMeshId }) {
   const bounds = useBounds()
 
   useEffect(() => {
-    if (!selectedMeshId) return undefined
-
     const frame = window.requestAnimationFrame(() => {
-      const mesh = scene.getObjectByProperty('uuid', selectedMeshId)
-      if (mesh) bounds.refresh(mesh).fit().clip()
+      const target = selectedMeshId
+        ? scene.getObjectByProperty('uuid', selectedMeshId)
+        : scene
+      if (target) bounds.refresh(target).fit().clip()
     })
 
     return () => window.cancelAnimationFrame(frame)
@@ -109,9 +205,9 @@ function FocusSelectedMesh({ scene, selectedMeshId }) {
   return null
 }
 
-function UploadedModelScene({ modelName, url, selectedMeshId, onSelectMesh, onPartsChange, appearanceOverrides }) {
+function UploadedModelScene({ url, selectedMeshId, onSelectMesh, onPartsChange, appearanceOverrides }) {
   const gltf = useGLTF(url)
-  const rotation = modelName?.toLowerCase() === 'gasturbinecutaway.glb' ? [0, -2 * Math.PI / 3, 0] : [0, 0, 0]
+  const rotation = selectedMeshId ? [0, 0, 0] : [0, -Math.PI / 3.5, 0]
   const scene = useMemo(() => {
     const clonedScene = clone(gltf.scene)
     clonedScene.traverse((node) => {
@@ -123,6 +219,7 @@ function UploadedModelScene({ modelName, url, selectedMeshId, onSelectMesh, onPa
     return clonedScene
   }, [gltf.scene])
   const meshes = useMemo(() => getMeshNodes(scene), [scene])
+  const selectableMeshIds = useMemo(() => new Set(meshes.map(({ meshId }) => meshId)), [meshes])
   const hoverTimeout = useRef(null)
 
   useEffect(() => {
@@ -197,7 +294,7 @@ function UploadedModelScene({ modelName, url, selectedMeshId, onSelectMesh, onPa
 
   const handleClick = (event) => {
     event.stopPropagation()
-    if (selectedMeshId) return
+    if (selectedMeshId || !selectableMeshIds.has(event.object.uuid)) return
     if (event.delta > 5) return
     window.clearTimeout(hoverTimeout.current)
     document.body.style.cursor = 'auto'
@@ -205,7 +302,7 @@ function UploadedModelScene({ modelName, url, selectedMeshId, onSelectMesh, onPa
   }
 
   return (
-    <Bounds key={selectedMeshId || 'full-model'} fit clip observe margin={1.2}>
+    <Bounds key={selectedMeshId || 'full-model'} fit clip observe margin={selectedMeshId ? 2 : 1.8}>
       <Center>
         <group rotation={rotation}>
           <FocusSelectedMesh scene={scene} selectedMeshId={selectedMeshId} />
@@ -215,26 +312,9 @@ function UploadedModelScene({ modelName, url, selectedMeshId, onSelectMesh, onPa
             onPointerOut={handlePointerOut}
             onClick={handleClick}
           />
-          {!selectedMeshId && meshes.map((mesh) => (
-            <Html key={mesh.meshId} position={mesh.coordinates} center distanceFactor={10} zIndexRange={[20, 0]}>
-              <button
-                type="button"
-                className={`uploaded-model-marker ${selectedMeshId === mesh.meshId ? 'uploaded-model-marker-active' : ''}`}
-                aria-label={`Select part ${mesh.number}: ${mesh.name}`}
-                onPointerDown={(event) => event.stopPropagation()}
-                onClick={(event) => {
-                  event.preventDefault()
-                  event.stopPropagation()
-                  window.clearTimeout(hoverTimeout.current)
-                  document.body.style.cursor = 'auto'
-                  onSelectMesh(mesh.meshId)
-                }}
-              >
-                <span className="uploaded-model-marker-number">{mesh.number}</span>
-                <span className="uploaded-model-marker-label">{mesh.name}</span>
-              </button>
-            </Html>
-          ))}
+          {!selectedMeshId && (
+            <UploadedModelHotspots meshes={meshes} onSelect={onSelectMesh} hoverTimeout={hoverTimeout} />
+          )}
         </group>
       </Center>
     </Bounds>
