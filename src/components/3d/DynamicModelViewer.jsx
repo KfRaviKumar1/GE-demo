@@ -6,22 +6,34 @@ import { clone } from 'three/addons/utils/SkeletonUtils.js'
 import { createModelParts } from '../../data/modelParts.js'
 import { registerUploadedScene } from './modelResources.js'
 
-const HOTSPOT_OFFSETS = [
-  [0, 0],
-  [0, -42], [42, 0], [0, 42], [-42, 0],
-  [30, -30], [30, 30], [-30, 30], [-30, -30],
-  [0, -60], [60, 0], [0, 60], [-60, 0],
-]
+const HOTSPOT_SPACING = 40
+const HOTSPOT_DIRECTIONS = Array.from({ length: 16 }, (_, index) =>
+  (index * Math.PI * 2) / 16,
+)
+
+function findHotspotOffset(anchor, placed) {
+  if (placed.every(({ x, y }) =>
+    Math.hypot(anchor[0] - x, anchor[1] - y) >= HOTSPOT_SPACING,
+  )) return [0, 0]
+
+  for (let radius = HOTSPOT_SPACING + 2; ; radius += HOTSPOT_SPACING + 2) {
+    for (const angle of HOTSPOT_DIRECTIONS) {
+      const offset = [Math.cos(angle) * radius, Math.sin(angle) * radius]
+      const isAvailable = placed.every(({ x, y }) =>
+        Math.hypot(anchor[0] + offset[0] - x, anchor[1] + offset[1] - y) >= HOTSPOT_SPACING,
+      )
+      if (isAvailable) return offset
+    }
+  }
+}
 
 function UploadedModelHotspots({ meshes, onSelect, hoverTimeout }) {
   const markerRefs = useRef([])
   const connectorRefs = useRef([])
-  const previousAnchors = useRef(null)
-  const stableFrames = useRef(0)
-  const layoutComplete = useRef(false)
+  const hasCalculatedOffsets = useRef(false)
 
   useFrame(() => {
-    if (layoutComplete.current) return
+    if (hasCalculatedOffsets.current) return
 
     const markers = markerRefs.current.slice(0, meshes.length)
     if (markers.some((marker) => !marker?.parentElement)) return
@@ -30,25 +42,12 @@ function UploadedModelHotspots({ meshes, onSelect, hoverTimeout }) {
       const bounds = marker.parentElement.getBoundingClientRect()
       return [bounds.left + bounds.width / 2, bounds.top + bounds.height / 2]
     })
-    const isStable = previousAnchors.current?.every(([x, y], index) =>
-      Math.hypot(anchors[index][0] - x, anchors[index][1] - y) < 0.1,
-    )
-    stableFrames.current = isStable ? stableFrames.current + 1 : 0
-    previousAnchors.current = anchors
-    if (stableFrames.current < 30) return
 
     const placed = []
     markers.forEach((marker, index) => {
-      const [anchorX, anchorY] = anchors[index]
-      const overlaps = placed.some(({ x, y }) => Math.hypot(anchorX - x, anchorY - y) < 40)
-      const [offsetX, offsetY] = overlaps
-        ? HOTSPOT_OFFSETS.slice(1).find(([x, y]) =>
-          placed.every(({ x: placedX, y: placedY }) =>
-            Math.hypot(anchorX + x - placedX, anchorY + y - placedY) >= 40,
-          ),
-        ) ?? [0, 0]
-        : [0, 0]
-      if (offsetX || offsetY) marker.style.translate = `${offsetX}px ${offsetY}px`
+      const [offsetX, offsetY] = findHotspotOffset(anchors[index], placed)
+      marker.style.translate = `${offsetX}px ${offsetY}px`
+      marker.style.visibility = 'visible'
 
       const connector = connectorRefs.current[index]
       if (connector) {
@@ -57,9 +56,9 @@ function UploadedModelHotspots({ meshes, onSelect, hoverTimeout }) {
         connector.style.visibility = offsetX || offsetY ? 'visible' : 'hidden'
       }
 
-      placed.push({ x: anchorX + offsetX, y: anchorY + offsetY })
+      placed.push({ x: anchors[index][0] + offsetX, y: anchors[index][1] + offsetY })
     })
-    layoutComplete.current = true
+    hasCalculatedOffsets.current = true
   })
 
   return meshes.map((mesh, index) => (
@@ -82,7 +81,7 @@ function UploadedModelHotspots({ meshes, onSelect, hoverTimeout }) {
           ref={(button) => { markerRefs.current[index] = button }}
           type="button"
           className="uploaded-model-marker"
-          style={{ position: 'absolute', left: -17, top: -17 }}
+          style={{ position: 'absolute', left: -17, top: -17, visibility: 'hidden' }}
           aria-label={`Select part ${mesh.number}: ${mesh.name}`}
           onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => {
@@ -302,7 +301,7 @@ function UploadedModelScene({ url, selectedMeshId, onSelectMesh, onPartsChange, 
   }
 
   return (
-    <Bounds key={selectedMeshId || 'full-model'} fit clip observe margin={selectedMeshId ? 2 : 1.8}>
+    <Bounds fit clip observe margin={selectedMeshId ? 2 : 1.8}>
       <Center>
         <group rotation={rotation}>
           <FocusSelectedMesh scene={scene} selectedMeshId={selectedMeshId} />
