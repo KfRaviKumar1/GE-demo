@@ -1,4 +1,4 @@
-import { Component, useEffect, useMemo, useRef } from 'react'
+import { Component, useEffect, useMemo, useRef, useState } from 'react'
 import { Bounds, Center, Html, useBounds, useGLTF } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { Box3, Vector3 } from 'three'
@@ -10,6 +10,7 @@ const HOTSPOT_SPACING = 40
 const HOTSPOT_DIRECTIONS = Array.from({ length: 16 }, (_, index) =>
   (index * Math.PI * 2) / 16,
 )
+const EMPTY_HOTSPOT_VISIBILITY_OVERRIDES = new Map()
 
 function findHotspotOffset(anchor, placed) {
   if (placed.every(({ x, y }) =>
@@ -27,15 +28,20 @@ function findHotspotOffset(anchor, placed) {
   }
 }
 
-function UploadedModelHotspots({ meshes, onSelect, hoverTimeout }) {
+function UploadedModelHotspots({ meshes, visibleHotspotMeshIndices, onSelect, hoverTimeout }) {
   const markerRefs = useRef([])
-  const connectorRefs = useRef([])
   const hasCalculatedOffsets = useRef(false)
+  const [offsetsReady, setOffsetsReady] = useState(false)
+
+  useEffect(() => {
+    hasCalculatedOffsets.current = meshes.length === 0
+    setOffsetsReady(meshes.length === 0)
+  }, [meshes])
 
   useFrame(() => {
     if (hasCalculatedOffsets.current) return
 
-    const markers = markerRefs.current.slice(0, meshes.length)
+    const markers = Array.from({ length: meshes.length }, (_, index) => markerRefs.current[index])
     if (markers.some((marker) => !marker?.parentElement)) return
 
     const anchors = markers.map((marker) => {
@@ -47,41 +53,28 @@ function UploadedModelHotspots({ meshes, onSelect, hoverTimeout }) {
     markers.forEach((marker, index) => {
       const [offsetX, offsetY] = findHotspotOffset(anchors[index], placed)
       marker.style.translate = `${offsetX}px ${offsetY}px`
-      marker.style.visibility = 'visible'
-
-      const connector = connectorRefs.current[index]
-      if (connector) {
-        connector.setAttribute('x2', String(offsetX))
-        connector.setAttribute('y2', String(offsetY))
-        connector.style.visibility = offsetX || offsetY ? 'visible' : 'hidden'
-      }
 
       placed.push({ x: anchors[index][0] + offsetX, y: anchors[index][1] + offsetY })
     })
     hasCalculatedOffsets.current = true
+    setOffsetsReady(true)
   })
 
   return meshes.map((mesh, index) => (
     <Html key={mesh.meshId} position={mesh.coordinates} center distanceFactor={10} zIndexRange={[20, 0]}>
-      <div style={{ position: 'relative', width: 0, height: 0 }}>
-        <svg
-          aria-hidden="true"
-          style={{ position: 'absolute', inset: 0, overflow: 'visible', pointerEvents: 'none' }}
-        >
-          <line
-            ref={(line) => { connectorRefs.current[index] = line }}
-            x1="0"
-            y1="0"
-            stroke="rgba(167,122,82,.85)"
-            strokeWidth="1.5"
-            style={{ visibility: 'hidden' }}
-          />
-        </svg>
+      <div
+        style={{
+          position: 'relative',
+          width: 0,
+          height: 0,
+          visibility: offsetsReady && visibleHotspotMeshIndices.has(mesh.meshIndex) ? 'visible' : 'hidden',
+        }}
+      >
         <button
           ref={(button) => { markerRefs.current[index] = button }}
           type="button"
           className="uploaded-model-marker"
-          style={{ position: 'absolute', left: -17, top: -17, visibility: 'hidden' }}
+          style={{ position: 'absolute', left: -17, top: -17 }}
           aria-label={`Select part ${mesh.number}: ${mesh.name}`}
           onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => {
@@ -121,7 +114,7 @@ function getMeshNodes(scene) {
     })
   })
 
-  return createModelParts(meshes)
+  return createModelParts(meshes).map((mesh, meshIndex) => ({ ...mesh, meshIndex }))
 }
 
 function getMaterialAppearance(materialValue) {
@@ -204,7 +197,16 @@ function FocusSelectedMesh({ scene, selectedMeshId }) {
   return null
 }
 
-function UploadedModelScene({ url, selectedMeshId, onSelectMesh, onPartsChange, appearanceOverrides }) {
+function UploadedModelScene({
+  modelName,
+  url,
+  selectedMeshId,
+  onSelectMesh,
+  onPartsChange,
+  appearanceOverrides,
+  hotspotNames,
+  hotspotVisibilityOverrides = EMPTY_HOTSPOT_VISIBILITY_OVERRIDES,
+}) {
   const gltf = useGLTF(url)
   const rotation = selectedMeshId ? [0, 0, 0] : [0, -Math.PI / 3.5, 0]
   const scene = useMemo(() => {
@@ -218,7 +220,53 @@ function UploadedModelScene({ url, selectedMeshId, onSelectMesh, onPartsChange, 
     return clonedScene
   }, [gltf.scene])
   const meshes = useMemo(() => getMeshNodes(scene), [scene])
-  const selectableMeshIds = useMemo(() => new Set(meshes.map(({ meshId }) => meshId)), [meshes])
+  const { hotspotMeshes, configuredHotspotMeshIds } = useMemo(() => {
+    const meshesByName = new Map()
+    meshes.forEach((mesh) => {
+      mesh.meshNames.forEach((name) => {
+        const key = name.trim().toLowerCase()
+        const matches = meshesByName.get(key) ?? []
+        matches.push(mesh)
+        meshesByName.set(key, matches)
+      })
+    })
+
+    const seenMeshIds = new Set()
+    const configuredMeshes = hotspotNames
+      ? hotspotNames.flatMap((name) => meshesByName.get(name.toLowerCase()) ?? [])
+        .filter((mesh) => {
+          if (seenMeshIds.has(mesh.meshId)) return false
+          seenMeshIds.add(mesh.meshId)
+          return true
+        })
+      : meshes
+    configuredMeshes.forEach(({ meshId }) => seenMeshIds.add(meshId))
+
+    const orderedMeshes = hotspotNames
+      ? [...configuredMeshes, ...meshes.filter(({ meshId }) => !seenMeshIds.has(meshId))]
+      : meshes
+    return {
+      hotspotMeshes: hotspotNames
+        ? orderedMeshes.map((mesh, index) => ({ ...mesh, number: String(index + 1).padStart(2, '0') }))
+        : meshes,
+      configuredHotspotMeshIds: new Set(configuredMeshes.map(({ meshId }) => meshId)),
+    }
+  }, [hotspotNames, meshes])
+  const visibleHotspotMeshIndices = useMemo(() => new Set(hotspotMeshes
+    .filter((mesh) => {
+      const isIncludedInJson = !hotspotNames || configuredHotspotMeshIds.has(mesh.meshId)
+      return hotspotVisibilityOverrides.get(mesh.meshIndex) ?? isIncludedInJson
+    })
+    .map(({ meshIndex }) => meshIndex)), [
+    configuredHotspotMeshIds,
+    hotspotNames,
+    hotspotMeshes,
+    hotspotVisibilityOverrides,
+  ])
+  const selectableMeshIds = useMemo(
+    () => new Set(hotspotMeshes.map(({ meshId }) => meshId)),
+    [hotspotMeshes],
+  )
   const hoverTimeout = useRef(null)
 
   useEffect(() => {
@@ -234,8 +282,24 @@ function UploadedModelScene({ url, selectedMeshId, onSelectMesh, onPartsChange, 
   }, [scene])
 
   useEffect(() => {
-    onPartsChange(meshes)
-  }, [meshes, onPartsChange])
+    onPartsChange(hotspotMeshes)
+  }, [hotspotMeshes, onPartsChange])
+
+  useEffect(() => {
+    console.log(`Extracted parts from "${modelName}":`, meshes.map(({ name, meshNames }) => ({
+      partName: name,
+      meshNames,
+    })))
+  }, [meshes, modelName])
+
+  useEffect(() => {
+    if (!hotspotNames?.length || configuredHotspotMeshIds.size > 0) return
+
+    console.warn('No JSON hotspot names matched a mesh in the uploaded model.', {
+      modelName,
+      meshNames: meshes.flatMap(({ meshNames }) => meshNames),
+    })
+  }, [configuredHotspotMeshIds, hotspotNames, meshes, modelName])
 
   useEffect(() => {
     const visibility = new Map()
@@ -312,7 +376,12 @@ function UploadedModelScene({ url, selectedMeshId, onSelectMesh, onPartsChange, 
             onClick={handleClick}
           />
           {!selectedMeshId && (
-            <UploadedModelHotspots meshes={meshes} onSelect={onSelectMesh} hoverTimeout={hoverTimeout} />
+            <UploadedModelHotspots
+              meshes={hotspotMeshes}
+              visibleHotspotMeshIndices={visibleHotspotMeshIndices}
+              onSelect={onSelectMesh}
+              hoverTimeout={hoverTimeout}
+            />
           )}
         </group>
       </Center>

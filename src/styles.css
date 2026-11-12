@@ -532,10 +532,16 @@ a { text-decoration: none; }
 .appearance-physical { display: grid; gap: 9px; margin-top: 2px; padding-top: 9px; border-top: 1px solid rgba(36,37,32,.08); }
 .appearance-physical-heading { color: #8b8b83; font-family: var(--mono); font-size: 7px; letter-spacing: .09em; }
 .uploaded-model-parts { min-height: 0; overflow: auto; scrollbar-width: thin; }
-.uploaded-model-part { display: flex; width: 100%; min-height: 34px; align-items: center; gap: 9px; padding: 0 4px; color: #55564f; background: transparent; border: 0; border-bottom: 1px solid rgba(36,37,32,.07); text-align: left; }
-.uploaded-model-part:hover, .uploaded-model-part.selected { color: #242520; background: rgba(189,137,83,.1); }
-.uploaded-model-part > span { color: #a7a69d; font-family: var(--mono); font-size: 8px; }
-.uploaded-model-part strong { overflow: hidden; font-size: 10px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.uploaded-model-part { display: flex; min-height: 34px; align-items: center; gap: 5px; border-bottom: 1px solid rgba(36,37,32,.07); }
+.uploaded-model-part-hotspot-hidden { color: #96968f; }
+.uploaded-model-part-select { display: flex; min-width: 0; min-height: 33px; flex: 1; align-items: center; gap: 9px; padding: 0 4px; color: inherit; background: transparent; border: 0; text-align: left; }
+.uploaded-model-part-select:hover:not(:disabled) { color: #242520; background: rgba(189,137,83,.1); }
+.uploaded-model-part-select:disabled { cursor: default; }
+.uploaded-model-part-select > span { color: #a7a69d; font-family: var(--mono); font-size: 8px; }
+.uploaded-model-part-select strong { overflow: hidden; font-size: 10px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.uploaded-model-part-toggle { display: grid; width: 28px; height: 28px; flex: 0 0 auto; place-items: center; color: #77786f; background: transparent; border: 0; border-radius: 4px; }
+.uploaded-model-part-toggle:hover, .uploaded-model-part-toggle:focus-visible { color: #9c724d; background: rgba(189,137,83,.1); outline: none; }
+.uploaded-model-part-toggle:disabled { color: #c4c3bd; cursor: default; }
 .uploaded-model-empty { color: #85857c; font-size: 10px; }
 .uploaded-model-back { display: inline-flex; min-height: 32px; align-items: center; gap: 6px; margin-top: 8px; padding: 0; color: #44453e; background: transparent; border: 0; font-size: 10px; }
 .uploaded-model-back:hover { color: var(--accent); }
@@ -562,6 +568,7 @@ a { text-decoration: none; }
 .upload-modal-file-list button { display: grid; width: 25px; height: 25px; flex: 0 0 auto; place-items: center; color: #676861; background: transparent; border: 0; }
 .upload-modal-error { margin: 10px 0 0; color: #a34435; font-size: 11px; }
 .upload-modal-note { margin: 13px 0 0; color: #85857c; font-size: 10px; line-height: 1.6; }
+.upload-modal-template-link { margin-top: 9px; color: #55564f; font-size: 11px; text-decoration: none; }
 .upload-modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 19px; padding-top: 15px; border-top: 1px solid #ececea; }
 .upload-modal-actions .workspace-primary-link { margin: 0; border: 0; }
 
@@ -638,8 +645,9 @@ a { text-decoration: none; }
   .uploaded-part-specs strong { font-size: 8px; }
   .appearance-range { grid-template-columns: 68px 1fr 27px; gap: 4px; font-size: 6px; }
   .appearance-map { font-size: 6px; }
-  .uploaded-model-part { min-height: 29px; gap: 6px; }
-  .uploaded-model-part strong { font-size: 9px; }
+  .uploaded-model-part { min-height: 29px; gap: 3px; }
+  .uploaded-model-part-select { min-height: 28px; gap: 6px; }
+  .uploaded-model-part-select strong { font-size: 9px; }
   .uploaded-model-back { min-height: 27px; font-size: 9px; }
   .upload-modal { padding: 17px; }
   .scene-page::before { height: 32px; }

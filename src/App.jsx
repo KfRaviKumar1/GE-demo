@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams, useRoutes } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, Box, Rotate3D } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Box, Eye, EyeOff, Rotate3D } from 'lucide-react'
 import CanvasContainer from './components/3d/CanvasContainer.jsx'
 import DynamicModelViewer from './components/3d/DynamicModelViewer.jsx'
 import LightingEnvironment from './components/3d/LightingEnvironment.jsx'
@@ -14,6 +14,8 @@ import NavigationOverlay from './components/ui/NavigationOverlay.jsx'
 import UploadModal from './components/ui/UploadModal.jsx'
 import WorkspacePage from './components/ui/WorkspacePage.jsx'
 import { getPart, modelParts } from './data/modelParts.js'
+
+const EMPTY_HOTSPOT_VISIBILITY_OVERRIDES = new Map()
 
 function getModelDisplayName(fileName) {
   return fileName.replace(/\.(glb|gltf)$/i, '')
@@ -41,8 +43,12 @@ function MainScene({ models, activeModelId, onSelectModel, onDeleteModel, onOpen
   const [selectedPart, setSelectedPart] = useState(null)
   const [meshRegistry, setMeshRegistry] = useState({ modelId: null, parts: [] })
   const [appearanceOverrides, setAppearanceOverrides] = useState({})
+  const [hotspotVisibilityOverridesByModel, setHotspotVisibilityOverridesByModel] = useState({})
   const selectedMeshId = activeModel && selectedPart?.modelId === activeModel.id ? selectedPart.meshId : null
   const meshNodes = meshRegistry.modelId === activeModel?.id ? meshRegistry.parts : []
+  const hotspotVisibilityOverrides = activeModel
+    ? hotspotVisibilityOverridesByModel[activeModel.id] ?? EMPTY_HOTSPOT_VISIBILITY_OVERRIDES
+    : EMPTY_HOTSPOT_VISIBILITY_OVERRIDES
   const selectedMesh = meshNodes.find(({ meshId }) => meshId === selectedMeshId)
   const reportParts = useCallback((parts) => {
     setMeshRegistry({ modelId: activeModel?.id, parts })
@@ -51,6 +57,13 @@ function MainScene({ models, activeModelId, onSelectModel, onDeleteModel, onOpen
     setSelectedPart((current) => current?.modelId === activeModel?.id && current.meshId === meshId
       ? null
       : { modelId: activeModel.id, meshId })
+  }
+  const toggleHotspotVisibility = (meshIndex, isVisible) => {
+    setHotspotVisibilityOverridesByModel((current) => {
+      const hotspotVisibilityOverrides = new Map(current[activeModel.id] ?? [])
+      hotspotVisibilityOverrides.set(meshIndex, isVisible)
+      return { ...current, [activeModel.id]: hotspotVisibilityOverrides }
+    })
   }
   const changeAppearance = (key, value) => {
     if (!selectedMeshId) return
@@ -79,6 +92,8 @@ function MainScene({ models, activeModelId, onSelectModel, onDeleteModel, onOpen
             onSelectMesh={selectMesh}
             onPartsChange={reportParts}
             appearanceOverrides={appearanceOverrides}
+            hotspotNames={activeModel.hotspotNames}
+            hotspotVisibilityOverrides={hotspotVisibilityOverrides}
           />
         ) : (
           <MainModel onSelectPart={(part) => navigate(`/part/${part.id}`)} />
@@ -121,21 +136,37 @@ function MainScene({ models, activeModelId, onSelectModel, onDeleteModel, onOpen
             )}
             {meshNodes.length > 0 && !selectedMeshId && (
               <div className="uploaded-model-parts">
-                {meshNodes.map((mesh, index) => (
-                  <button
-                    type="button"
-                    key={mesh.meshId}
-                    className="uploaded-model-part"
-                    onClick={() => selectMesh(mesh.meshId)}
-                  >
-                    <span>{String(index + 1).padStart(2, '0')}</span>
-                    <strong title={mesh.name}>{mesh.name}</strong>
-                  </button>
-                ))}
+                {meshNodes.map((mesh) => {
+                  const isIncludedInJson = !activeModel.hotspotNames || mesh.meshNames.some((meshName) =>
+                    activeModel.hotspotNames.some((name) => name.toLowerCase() === meshName.toLowerCase()),
+                  )
+                  const isHotspotVisible = hotspotVisibilityOverrides.get(mesh.meshIndex) ?? isIncludedInJson
+                  return (
+                    <div className={`uploaded-model-part ${isHotspotVisible ? '' : 'uploaded-model-part-hotspot-hidden'}`} key={mesh.meshId}>
+                      <button
+                        type="button"
+                        className="uploaded-model-part-select"
+                        onClick={() => selectMesh(mesh.meshId)}
+                      >
+                        <span>{mesh.number}</span>
+                        <strong title={mesh.name}>{mesh.name}</strong>
+                      </button>
+                      <button
+                        type="button"
+                        className="uploaded-model-part-toggle"
+                        aria-label={`${isHotspotVisible ? 'Hide' : 'Show'} ${mesh.name} hotspot`}
+                        aria-pressed={isHotspotVisible}
+                        onClick={() => toggleHotspotVisibility(mesh.meshIndex, !isHotspotVisible)}
+                      >
+                        {isHotspotVisible ? <Eye size={14} /> : <EyeOff size={14} />}
+                      </button>
+                    </div>
+                  )
+                })}
               </div>
             )}
             {meshNodes.length === 0 && <p className="uploaded-model-empty">
-              {meshRegistry.modelId === activeModel.id ? 'No mesh parts were found in this model.' : 'Loading model parts…'}
+              {meshRegistry.modelId === activeModel.id ? 'No meshes were found in this model.' : 'Loading model parts…'}
             </p>}
             {selectedMeshId && (
               <button type="button" className="uploaded-model-back" onClick={() => setSelectedPart(null)}>
@@ -210,11 +241,12 @@ function App() {
     })
   }, [])
 
-  const addModels = (files) => {
-    const newModels = files.map((file) => ({
+  const addModels = (uploads) => {
+    const newModels = uploads.map(({ modelFile, hotspotNames }) => ({
       id: crypto.randomUUID(),
-      name: file.name,
-      url: URL.createObjectURL(file),
+      name: modelFile.name,
+      url: URL.createObjectURL(modelFile),
+      hotspotNames,
     }))
 
     setModels((current) => [...current, ...newModels])

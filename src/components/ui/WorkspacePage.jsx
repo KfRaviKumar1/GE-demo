@@ -105,7 +105,7 @@ export default function WorkspacePage({ models = [], onOpenUpload, onSelectModel
         <span className="workspace-status"><i /> Online</span>
       </div>
       <p className="workspace-description">
-        {isUpload ? 'Add a 3D turbine model file to your workspace.' : page.description}
+        {isUpload ? 'Add a 3D model and optionally provide a JSON hotspot-name list.' : page.description}
       </p>
 
       {isComponents ? (
@@ -119,7 +119,7 @@ export default function WorkspacePage({ models = [], onOpenUpload, onSelectModel
         <section className="workspace-card">
           <div className="workspace-card-icon"><FileUp size={20} /></div>
           <h2>Upload a 3D model</h2>
-          <p>Choose one or more local models in GLB or glTF format.</p>
+          <p>Choose local GLB or glTF models, with an optional matching JSON hotspot-name list for each.</p>
           <button type="button" className="workspace-primary-link" onClick={onOpenUpload}>
             <Upload size={15} /> Choose model files
           </button>
