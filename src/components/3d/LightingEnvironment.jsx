@@ -28,7 +28,7 @@ function StudioEnvironment() {
 export default function LightingEnvironment() {
   return (
     <>
-      <color attach="background" args={['#f5f4f0']} />
+      <color attach="background" args={['#e4e7ea']} />
       <ambientLight intensity={0.8} />
       <hemisphereLight args={['#ffffff', '#b9b5ad', 1.1]} />
       <directionalLight

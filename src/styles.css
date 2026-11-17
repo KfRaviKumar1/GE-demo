@@ -10,6 +10,7 @@
   font-weight: 400;
 
   --paper: #f5f4f0;
+  --viewer-bg: #e4e7ea;
   --ink: #242520;
   --muted: #898981;
   --line: rgba(36, 37, 32, 0.13);
@@ -248,12 +249,12 @@ a { text-decoration: none; }
 .catalog-reset:hover { background: #f7f7f6; }
 
 .catalog-stage { display: grid; grid-template-columns: minmax(0, 1fr) 320px; min-height: 0; }
-.catalog-viewer { position: relative; min-height: 0; overflow: hidden; background: var(--paper); }
+.catalog-viewer { position: relative; min-height: 0; overflow: hidden; background: var(--viewer-bg); }
 .catalog-hint { position: absolute; z-index: 3; left: 16px; bottom: 12px; display: flex; align-items: center; gap: 8px; color: #85857c; font-family: var(--mono); font-size: 9px; letter-spacing: .08em; pointer-events: none; }
 .catalog-hint svg { color: #a78361; }
 .catalog-hint > span { color: #c3b4a3; }
 .canvas-error { position: absolute; inset: 0; display: grid; place-items: center; padding: 20px; color: #797970; font-family: var(--mono); font-size: 11px; text-align: center; }
-.catalog-loader { position: absolute; z-index: 4; inset: 0; display: grid; place-content: center; gap: 10px; background: var(--paper); }
+.catalog-loader { position: absolute; z-index: 4; inset: 0; display: grid; place-content: center; gap: 10px; background: var(--viewer-bg); }
 .catalog-loader span { color: #797970; font-family: var(--mono); font-size: 11px; text-align: center; }
 .catalog-loader-bar { width: 240px; height: 4px; overflow: hidden; border-radius: 2px; background: #dddcd6; }
 .catalog-loader-bar i { display: block; height: 100%; background: var(--accent); transition: width 200ms ease; }
@@ -267,7 +268,7 @@ a { text-decoration: none; }
 
 .catalog-strip { display: flex; gap: 16px; overflow-x: auto; padding: 14px 20px; border-top: 1px solid #e1e1df; background: #fff; scrollbar-width: thin; }
 .catalog-card { flex: 0 0 200px; overflow: hidden; color: #30312c; border: 1px solid #e1e1df; border-radius: 10px; text-decoration: none; transition: border-color 150ms ease, box-shadow 150ms ease; }
-.catalog-card img { display: block; width: 100%; height: 112px; object-fit: cover; background: var(--paper); }
+.catalog-card img { display: block; width: 100%; height: 112px; object-fit: cover; background: var(--viewer-bg); }
 .catalog-card span { display: block; padding: 8px 10px; font-size: 12px; }
 .catalog-card small { margin-right: 6px; color: var(--accent); font-family: var(--mono); font-size: 10px; }
 .catalog-card:hover { border-color: #9c9b91; }
