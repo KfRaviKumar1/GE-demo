@@ -1,4 +1,4 @@
-import { Fragment } from 'react'
+import { Fragment, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, ChevronRight, Rotate3D } from 'lucide-react'
 import CanvasContainer from '../3d/CanvasContainer.jsx'
@@ -13,6 +13,8 @@ export default function CatalogScene() {
   const { modelId, nodeId } = useParams()
   const navigate = useNavigate()
   const item = getCatalogItem(modelId, nodeId)
+  // Download progress of the model's GLB (null when it is already cached).
+  const [progress, setProgress] = useState(null)
 
   if (!item) {
     return (
@@ -61,8 +63,18 @@ export default function CatalogScene() {
             maxDistance={100000}
           >
             <LightingEnvironment />
-            <CatalogModelViewer item={item} onSelect={(child) => navigate(catalogPath(child))} />
+            <CatalogModelViewer
+              item={item}
+              onSelect={(child) => navigate(catalogPath(child))}
+              onProgress={(event) => event.total && setProgress(Math.round((event.loaded / event.total) * 100))}
+            />
           </CanvasContainer>
+          {progress !== null && progress < 100 && (
+            <div className="catalog-loader" role="status">
+              <span>Loading {item.model.name} {progress}%</span>
+              <div className="catalog-loader-bar"><i style={{ width: `${progress}%` }} /></div>
+            </div>
+          )}
           <div className="catalog-hint">
             <Rotate3D size={14} strokeWidth={1.6} /> DRAG TO ROTATE <span>·</span> SCROLL TO ZOOM <span>·</span> RIGHT-DRAG TO PAN
           </div>

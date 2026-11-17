@@ -1,7 +1,9 @@
 import { Component, useEffect, useMemo } from 'react'
-import { Bounds, Html, useBounds, useGLTF } from '@react-three/drei'
-import { useThree } from '@react-three/fiber'
+import { Bounds, Html, useBounds } from '@react-three/drei'
+import { useLoader, useThree } from '@react-three/fiber'
 import { Box3, Sphere, Vector3 } from 'three'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import Hotspot from '../ui/Hotspot.jsx'
 
 const VIEW_DIRECTION = new Vector3(1, 0.45, 1).normalize()
@@ -83,8 +85,11 @@ function FocusItem({ scene, item }) {
   return null
 }
 
-function CatalogModelScene({ item, onSelect }) {
-  const { scene } = useGLTF(item.model.file)
+const useMeshopt = (loader) => loader.setMeshoptDecoder(MeshoptDecoder)
+
+function CatalogModelScene({ item, onSelect, onProgress }) {
+  // useLoader (not drei's useGLTF) so download progress can be reported.
+  const { scene } = useLoader(GLTFLoader, item.model.file, useMeshopt, onProgress)
   const anchors = useMemo(() => computeAnchors(item.model, scene), [item.model, scene])
 
   // Show only the selected item (and everything under it).

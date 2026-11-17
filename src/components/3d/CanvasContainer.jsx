@@ -1,4 +1,4 @@
-import { Suspense } from 'react'
+import { Component, Suspense } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { Html, OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
@@ -6,12 +6,41 @@ import * as THREE from 'three'
 function LoadingState() {
   return (
     <Html center>
-      <div className="canvas-loader"><span /> Preparing the engine</div>
+      <div className="canvas-loader"><span /> Preparing the model</div>
     </Html>
   )
 }
 
-export default function CanvasContainer({
+// Keeps a 3D failure (no WebGL, blocked download) from unmounting the whole
+// app: the rest of the page stays usable and the viewer shows a message.
+class CanvasErrorBoundary extends Component {
+  state = { hasError: false }
+
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+
+  componentDidCatch(error) {
+    console.error('The 3D view failed to render.', error)
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return <div className="canvas-error" role="alert">The 3D view could not be shown in this browser.</div>
+    }
+    return this.props.children
+  }
+}
+
+export default function CanvasContainer(props) {
+  return (
+    <CanvasErrorBoundary>
+      <SceneCanvas {...props} />
+    </CanvasErrorBoundary>
+  )
+}
+
+function SceneCanvas({
   children,
   cameraPosition = [4.1, 2.7, 5.2],
   canvasClassName = '',
