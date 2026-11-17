@@ -227,11 +227,20 @@ class ModelLoadBoundary extends Component {
     console.error('Unable to load the catalog model.', error)
   }
 
+  // Forget the failed download (e.g. a dropped connection) and load again.
+  retry = () => {
+    useLoader.clear(GLTFLoader, this.props.url)
+    this.setState({ hasError: false })
+  }
+
   render() {
     if (this.state.hasError) {
       return (
         <Html center>
-          <div className="canvas-loader model-load-error" role="alert">Could not load this model.</div>
+          <div className="canvas-loader model-load-error" role="alert">
+            Could not load this model.
+            <button type="button" className="model-retry" onClick={this.retry}>Try again</button>
+          </div>
         </Html>
       )
     }
@@ -241,7 +250,7 @@ class ModelLoadBoundary extends Component {
 
 export default function CatalogModelViewer(props) {
   return (
-    <ModelLoadBoundary key={props.item.model.id}>
+    <ModelLoadBoundary key={props.item.model.id} url={props.item.model.file}>
       <CatalogModelScene {...props} />
     </ModelLoadBoundary>
   )
