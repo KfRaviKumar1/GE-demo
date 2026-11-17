@@ -116,21 +116,18 @@ function Marker({ position, item, onSelect, markerRef }) {
   )
 }
 
-// Hides markers whose point is behind other geometry from the current view
-// (e.g. after rotating the model), and shows them again when it comes back
-// into view. Checked only when the camera moves.
-function useMarkerOcclusion({ target, markers, anchors, refs, enabled }) {
+// Hides markers whose point is behind other (solid) geometry from the current
+// view, e.g. after rotating the model, and shows them again when it comes back
+// into view. See-through parts don't hide markers. Checked when the camera
+// moves or parts change transparency.
+function useMarkerOcclusion({ target, markers, anchors, refs, version }) {
   const camera = useThree((state) => state.camera)
-  const raycaster = useMemo(() => {
-    const caster = new Raycaster()
-    caster.firstHitOnly = true
-    return caster
-  }, [])
+  const raycaster = useMemo(() => new Raycaster(), [])
   const lastView = useRef(null)
   const direction = useMemo(() => new Vector3(), [])
   const radius = useMemo(() => new Box3().setFromObject(target).getBoundingSphere(new Sphere()).radius, [target])
 
-  useEffect(() => { lastView.current = null }, [target, markers, enabled])
+  useEffect(() => { lastView.current = null }, [target, markers, version])
 
   useFrame(() => {
     const view = camera.matrixWorld.elements.join(',')
@@ -140,23 +137,77 @@ function useMarkerOcclusion({ target, markers, anchors, refs, enabled }) {
     markers.forEach((item, index) => {
       const element = refs.current[index]
       if (!element) return
-      let hidden = false
-      if (enabled) {
-        const point = anchors.get(item)
-        const distance = camera.position.distanceTo(point)
-        raycaster.set(camera.position, direction.subVectors(point, camera.position).normalize())
-        raycaster.far = distance
-        const hit = raycaster.intersectObject(target, true)[0]
-        hidden = Boolean(hit && hit.distance < distance - Math.max(radius * 0.02, distance * 0.002))
-      }
+      const point = anchors.get(item)
+      const distance = camera.position.distanceTo(point)
+      raycaster.set(camera.position, direction.subVectors(point, camera.position).normalize())
+      raycaster.far = distance
+      const hit = raycaster.intersectObject(target, true).find(({ object }) => !object.userData.seeThrough)
+      const hidden = Boolean(hit && hit.distance < distance - Math.max(radius * 0.02, distance * 0.002))
       element.classList.toggle('hotspot-occluded', hidden)
     })
   })
 }
 
+const seeThroughCopy = (material) => {
+  const copy = material.clone()
+  copy.transparent = true
+  copy.opacity = TRANSPARENT_OPACITY
+  copy.depthWrite = false
+  return copy
+}
+
+// The doc-level part (deepest catalog item) each mesh belongs to, so a click
+// anywhere on a part applies to the whole part.
+function mapMeshesToParts(model, scene) {
+  const parts = new Map()
+  ;(function walk(item) {
+    scene.getObjectByName(item.node)?.traverse((object) => { if (object.isMesh) parts.set(object, item) })
+    item.children?.forEach(walk) // children overwrite their parent: deepest wins
+  })(model)
+  return parts
+}
+
+// With a tool picked, clicking a part makes it see-through (Transparent) or
+// solid again (Opaque). Transparent clicks pass through parts that are already
+// see-through; Opaque clicks pick the see-through part under the pointer.
+// Uses plain pointer events + a raycast against the visible model (the cached
+// GLTF scene is re-mounted on every route, so R3F's own events are not used).
+function usePartClicks({ target, meshParts, tool, onSetSeeThrough }) {
+  const camera = useThree((state) => state.camera)
+  const element = useThree((state) => state.gl.domElement)
+  const raycaster = useMemo(() => new Raycaster(), [])
+
+  useEffect(() => {
+    if (!tool || !onSetSeeThrough) return
+    let down = null
+    const onDown = (event) => { down = [event.clientX, event.clientY] }
+    const onUp = (event) => {
+      if (!down || Math.hypot(event.clientX - down[0], event.clientY - down[1]) > 5) return // a drag, not a click
+      down = null
+      const rect = element.getBoundingClientRect()
+      const pointer = { x: ((event.clientX - rect.left) / rect.width) * 2 - 1, y: -((event.clientY - rect.top) / rect.height) * 2 + 1 }
+      raycaster.setFromCamera(pointer, camera)
+      const hits = raycaster.intersectObject(target, true).filter(({ object }) => object.visible && meshParts.has(object))
+      const wantSeeThrough = tool === 'transparent'
+      const hit = hits.find(({ object }) => Boolean(object.userData.seeThrough) !== wantSeeThrough) ?? hits[0]
+      if (hit) onSetSeeThrough(meshParts.get(hit.object).node, wantSeeThrough)
+    }
+    element.addEventListener('pointerdown', onDown)
+    element.addEventListener('pointerup', onUp)
+    element.style.cursor = 'crosshair'
+    return () => {
+      element.removeEventListener('pointerdown', onDown)
+      element.removeEventListener('pointerup', onUp)
+      element.style.cursor = ''
+    }
+  }, [camera, element, meshParts, onSetSeeThrough, raycaster, target, tool])
+}
+
 const useMeshopt = (loader) => loader.setMeshoptDecoder(MeshoptDecoder)
 
-function CatalogModelScene({ item, onSelect, onProgress, displayMode = 'opaque' }) {
+// `tool` is 'transparent', 'opaque' or null; `seeThroughParts` holds the node
+// names of parts currently see-through; `onSetSeeThrough(node, boolean)`.
+function CatalogModelScene({ item, onSelect, onProgress, tool = null, seeThroughParts, onSetSeeThrough }) {
   // useLoader (not drei's useGLTF) so download progress can be reported.
   const { scene } = useLoader(GLTFLoader, item.model.file, useMeshopt, onProgress)
   const anchors = useMemo(() => computeAnchors(item.model, scene), [item.model, scene])
@@ -172,30 +223,29 @@ function CatalogModelScene({ item, onSelect, onProgress, displayMode = 'opaque' 
     return () => scene.traverse((object) => { if (object.isMesh) object.visible = true })
   }, [scene, target])
 
-  // Transparent mode: swap the visible part's materials for see-through copies.
-  useEffect(() => {
-    if (displayMode !== 'transparent') return
-    const originals = []
-    const seeThrough = (material) => {
-      const copy = material.clone()
-      copy.transparent = true
-      copy.opacity = TRANSPARENT_OPACITY
-      copy.depthWrite = false
-      return copy
-    }
-    target.traverse((object) => {
-      if (!object.isMesh) return
-      originals.push([object, object.material])
-      object.material = Array.isArray(object.material) ? object.material.map(seeThrough) : seeThrough(object.material)
-    })
-    return () => originals.forEach(([object, material]) => {
-      ;(Array.isArray(object.material) ? object.material : [object.material]).forEach((copy) => copy.dispose())
-      object.material = material
-    })
-  }, [target, displayMode])
+  const meshParts = useMemo(() => mapMeshesToParts(item.model, scene), [item.model, scene])
 
-  // In transparent mode every marker stays visible: nothing hides it.
-  useMarkerOcclusion({ target, markers, anchors, refs: markerRefs, enabled: displayMode !== 'transparent' })
+  // Swap the materials of see-through parts for transparent copies; every
+  // other part keeps its own materials.
+  useEffect(() => {
+    if (!seeThroughParts?.size) return
+    const originals = []
+    meshParts.forEach((part, mesh) => {
+      if (!seeThroughParts.has(part.node)) return
+      originals.push([mesh, mesh.material])
+      mesh.material = Array.isArray(mesh.material) ? mesh.material.map(seeThroughCopy) : seeThroughCopy(mesh.material)
+      mesh.userData.seeThrough = true
+    })
+    return () => originals.forEach(([mesh, material]) => {
+      ;(Array.isArray(mesh.material) ? mesh.material : [mesh.material]).forEach((copy) => copy.dispose())
+      mesh.material = material
+      delete mesh.userData.seeThrough
+    })
+  }, [meshParts, seeThroughParts])
+
+  useMarkerOcclusion({ target, markers, anchors, refs: markerRefs, version: seeThroughParts })
+
+  usePartClicks({ target, meshParts, tool, onSetSeeThrough })
 
   return (
     <Bounds fit clip observe margin={1.25}>

@@ -36,7 +36,7 @@ The sidebar tree, markers and pages are all generated from the model data, so no
    - Optional fields:
      - `icon`: one of `aircraft`, `engine`, `fan`, `core`, `exhaust`, `part`.
      - `video`: a URL; a "Watch video" link appears when it's set.
-     - `displayModes: ['opaque', 'transparent']` on the model: shows **Opaque / Transparent** buttons in the viewer. The chosen mode applies to whatever section or part is selected. See `gas-turbine-cutaway.js`.
+     - `displayModes: ['opaque', 'transparent']` on the model: shows **Opaque / Transparent** tools in the viewer. Pick a tool, then click parts of the model: Transparent makes the clicked part see-through, and Opaque makes it solid again. Other parts keep their state, and **Reset** clears everything. See `gas-turbine-cutaway.js`.
 3. **Register it** in `src/data/catalogModels.js`:
    ```js
    import myModel from './models/my-model.js'
