@@ -15,53 +15,81 @@ const isInside = (object, root) => {
   return false
 }
 
-// One marker anchor per catalog item, placed on a real vertex of the part:
-// aim slightly above/in front of the part's centre, staggered along the
-// model's long axis between siblings so markers of one level don't stack.
-function computeAnchors(model, scene) {
+const MAX_SAMPLES_PER_PART = 30000
+const MAX_VISIBILITY_TESTS = 5000
+// The page's camera ends up somewhere along the opening direction once the view
+// is fitted to the screen, so a marker spot must be visible from all of these.
+const EYE_DISTANCES = [1.6, 2.4, 3, 4.5, 7]
+const anchorCache = new WeakMap() // catalog item -> Map(child -> anchor point)
+
+// Where a page's camera starts: looking at the target from the standard 3/4 angle.
+function openingEye(sphere, distance = 3) {
+  return sphere.center.clone().addScaledVector(VIEW_DIRECTION, sphere.radius * distance)
+}
+
+// Marker anchors for the children of `item`, on the page that shows `item`.
+// Each marker sits on a real vertex of its part, near a preferred spot
+// (slightly above/in front of the part's centre, staggered along the model's
+// long axis between siblings so they don't stack), but it is the nearest
+// vertex that is not blocked from the page's opening camera position, so
+// every marker is visible when the page first renders.
+function computeViewAnchors(item, scene) {
+  if (anchorCache.has(item)) return anchorCache.get(item)
   scene.updateMatrixWorld(true)
-  const items = []
-  ;(function walk(item) { items.push(item); item.children?.forEach(walk) })(model)
-
-  const boxes = new Map()
-  items.forEach((item) => {
-    const object = scene.getObjectByName(item.node)
-    if (object) boxes.set(item, new Box3().setFromObject(object, true))
-    else console.warn(`[${model.id}] node not found in GLB:`, item.node)
-  })
-
-  const size = boxes.get(model)?.getSize(new Vector3()) ?? new Vector3(1, 1, 1)
+  const target = scene.getObjectByName(item.node) ?? scene
+  const modelSize = new Box3().setFromObject(scene.getObjectByName(item.model.node) ?? scene, true).getSize(new Vector3())
   const axis = new Vector3(
-    +(size.x >= size.y && size.x >= size.z), +(size.y > size.x && size.y >= size.z), +(size.z > size.x && size.z > size.y),
+    +(modelSize.x >= modelSize.y && modelSize.x >= modelSize.z),
+    +(modelSize.y > modelSize.x && modelSize.y >= modelSize.z),
+    +(modelSize.z > modelSize.x && modelSize.z > modelSize.y),
   )
   const toward = new Vector3(0, 1, 0).addScaledVector(VIEW_DIRECTION, 0.6).normalize()
-  const anchors = new Map()
-  const vertex = new Vector3()
-  const aim = new Vector3()
+  const view = new Box3().setFromObject(target, true).getBoundingSphere(new Sphere())
+  const eyes = EYE_DISTANCES.map((distance) => openingEye(view, distance))
+  const tolerance = view.radius * 0.01
+  const raycaster = new Raycaster()
+  raycaster.firstHitOnly = true
+  const direction = new Vector3()
+  const isVisibleFrom = (eye, point) => {
+    const distance = eye.distanceTo(point)
+    raycaster.set(eye, direction.subVectors(point, eye).normalize())
+    raycaster.far = distance + tolerance
+    const hit = raycaster.intersectObject(target, true)[0] // only this page's parts are shown
+    return !hit || hit.distance >= distance - tolerance
+  }
+  const isVisibleFromEye = (point) => eyes.every((eye) => isVisibleFrom(eye, point))
 
-  items.forEach((item) => {
-    const box = boxes.get(item)
-    if (!box || !item.parent) return
-    const siblings = item.parent.children
-    const k = siblings.length > 1 ? siblings.indexOf(item) / (siblings.length - 1) - 0.5 : 0
-    aim.copy(box.getCenter(new Vector3()))
+  const anchors = new Map()
+  const children = item.children ?? []
+  children.forEach((child, index) => {
+    const part = scene.getObjectByName(child.node)
+    if (!part) { console.warn(`[${item.model.id}] node not found in GLB:`, child.node); return }
+    const box = new Box3().setFromObject(part, true)
+    const k = children.length > 1 ? index / (children.length - 1) - 0.5 : 0
+    const aim = box.getCenter(new Vector3())
       .addScaledVector(toward, box.getBoundingSphere(new Sphere()).radius * 0.5)
       .addScaledVector(axis, k * box.getSize(new Vector3()).dot(axis) * 0.5)
 
-    let best = Infinity
-    let anchor = null
-    scene.getObjectByName(item.node).traverse((object) => {
-      if (!object.isMesh) return
-      const position = object.geometry.attributes.position
-      const step = Math.max(1, Math.floor(position.count / 20000)) // sample large meshes
+    // Sample the part's vertices, nearest to the preferred spot first.
+    const meshes = []
+    part.traverse((object) => { if (object.isMesh) meshes.push(object) })
+    const total = meshes.reduce((sum, mesh) => sum + mesh.geometry.attributes.position.count, 0)
+    const step = Math.max(1, Math.ceil(total / MAX_SAMPLES_PER_PART))
+    const candidates = []
+    meshes.forEach((mesh) => {
+      const position = mesh.geometry.attributes.position
       for (let i = 0; i < position.count; i += step) {
-        vertex.fromBufferAttribute(position, i).applyMatrix4(object.matrixWorld)
-        const distance = vertex.distanceToSquared(aim)
-        if (distance < best) { best = distance; anchor = vertex.clone() }
+        const point = new Vector3().fromBufferAttribute(position, i).applyMatrix4(mesh.matrixWorld)
+        candidates.push({ point, distance: point.distanceToSquared(aim) })
       }
     })
-    if (anchor) anchors.set(item, anchor)
+    candidates.sort((a, b) => a.distance - b.distance)
+    const visible = candidates.slice(0, MAX_VISIBILITY_TESTS).find(({ point }) => isVisibleFromEye(point))
+    const anchor = (visible ?? candidates[0])?.point
+    if (anchor) anchors.set(child, anchor)
   })
+
+  anchorCache.set(item, anchors)
   return anchors
 }
 
@@ -86,7 +114,7 @@ function FocusItem({ scene, item }) {
       // Bounds.fit() keeps the current view direction, so first look at the
       // target from the standard 3/4 angle (models can be far from the origin).
       const sphere = new Box3().setFromObject(target, true).getBoundingSphere(new Sphere())
-      camera.position.copy(sphere.center).addScaledVector(VIEW_DIRECTION, sphere.radius * 3)
+      camera.position.copy(openingEye(sphere)) // same viewpoint the marker spots are chosen for
       camera.lookAt(sphere.center)
       controls?.target.copy(sphere.center)
       bounds.refresh(target).fit().clip()
@@ -118,18 +146,29 @@ function Marker({ position, item, onSelect, markerRef }) {
 
 // Hides markers whose point is behind other (solid) geometry from the current
 // view, e.g. after rotating the model, and shows them again when it comes back
-// into view. See-through parts don't hide markers. Checked when the camera
+// into view. See-through parts don't hide markers. Every marker is shown until
+// the user first moves the model; after that it is checked whenever the camera
 // moves or parts change transparency.
 function useMarkerOcclusion({ target, markers, anchors, refs, version }) {
   const camera = useThree((state) => state.camera)
+  const controls = useThree((state) => state.controls)
   const raycaster = useMemo(() => new Raycaster(), [])
   const lastView = useRef(null)
+  const userMoved = useRef(false)
   const direction = useMemo(() => new Vector3(), [])
   const radius = useMemo(() => new Box3().setFromObject(target).getBoundingSphere(new Sphere()).radius, [target])
 
   useEffect(() => { lastView.current = null }, [target, markers, version])
 
+  useEffect(() => {
+    if (!controls) return
+    const onStart = () => { userMoved.current = true; lastView.current = null }
+    controls.addEventListener('start', onStart)
+    return () => controls.removeEventListener('start', onStart)
+  }, [controls])
+
   useFrame(() => {
+    if (!userMoved.current) return // opening view: all markers stay visible
     const view = camera.matrixWorld.elements.join(',')
     if (view === lastView.current) return
     lastView.current = view
@@ -210,12 +249,11 @@ const useMeshopt = (loader) => loader.setMeshoptDecoder(MeshoptDecoder)
 function CatalogModelScene({ item, onSelect, onProgress, tool = null, seeThroughParts, onSetSeeThrough }) {
   // useLoader (not drei's useGLTF) so download progress can be reported.
   const { scene } = useLoader(GLTFLoader, item.model.file, useMeshopt, onProgress)
-  const anchors = useMemo(() => computeAnchors(item.model, scene), [item.model, scene])
+  useMemo(() => ensureBoundsTrees(scene), [scene]) // before the anchors: they use raycasts
+  const anchors = useMemo(() => computeViewAnchors(item, scene), [item, scene])
   const target = scene.getObjectByName(item.node) ?? scene
   const markers = useMemo(() => (item.children ?? []).filter((child) => anchors.has(child)), [item, anchors])
   const markerRefs = useRef([])
-
-  useMemo(() => ensureBoundsTrees(scene), [scene])
 
   // Show only the selected item (and everything under it).
   useEffect(() => {
