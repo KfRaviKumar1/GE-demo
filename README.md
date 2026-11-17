@@ -1,6 +1,10 @@
-# Gas Turbine — Interactive 3D Explorer
+# Aviation 3D Explorer
 
-An interactive React Three Fiber gas turbine viewer with a cutaway axial-flow assembly, clickable component hotspots, dedicated detail routes, casing fasteners, camera controls, and shared PBR lighting.
+Interactive React Three Fiber viewer for aviation models. Each model has a collapsible entry under **MODELS** in the sidebar, which drills down from model to sections to parts. Every level has its own page:
+
+- The selected section or part is isolated and framed.
+- Numbered markers point to its children.
+- The page shows a description and thumbnail, a side index, and a breadcrumb.
 
 ## Run locally
 
@@ -11,61 +15,49 @@ npm run dev
 
 Open the local URL printed by Vite. Create a production build with `npm run build`.
 
-## Deploy to GitHub Pages
+## Routes
 
-1. Create a GitHub repository and push this project to its `main` or `master` branch.
-2. In the repository, open **Settings → Pages** and set the build and deployment source to **GitHub Actions**.
-3. Each push to `main` or `master` deploys the app. The workflow is in `.github/workflows/deploy.yml`.
+Routes are hash-based, so they also work on static hosts such as GitHub Pages.
 
-The app uses hash-based routes so component and workspace links continue to work on GitHub Pages without server-side route rewrites. The Vite build automatically uses the repository path for project sites and the root path for `username.github.io` sites.
+- `#/explore/<model-id>` is the full model.
+- `#/explore/<model-id>/<GLB node name>` is a section or part.
+- Any other URL redirects to the first model.
 
-## Included model and GLB assets
+## Adding a model
 
-The app is immediately usable without external model files: the default scene is a procedural gas turbine with a cutaway casing, intake, compressor and turbine blade rows, combustor, shaft, bearing, exhaust, and visible casing screws. Detail routes contain a separate procedural assembly for every mapped component. To use your own GLBs:
+The sidebar tree, markers and pages are all generated from the model data, so no UI code changes are needed.
 
-1. Copy the complete model to `public/models/assembly.glb`.
-2. Copy an isolated GLB for each component to `public/models/parts/<id>.glb`, using the IDs listed in `src/data/modelParts.js`.
-3. In `src/data/modelParts.js`, set `USE_GLB_ASSETS` to `true`.
-4. Name the relevant meshes in `assembly.glb` so their names contain the configured `meshNames` values, including `compressor-blade`, `turbine-blade`, and `casing-screw`. These names map raycast hits to component routes. Update `coordinates` to position each HTML hotspot on your model.
+1. **Add the files** to `public/models/catalog/<model-id>/`:
+   - `model.glb`, the 3D model. To compress it, run `npx gltf-transform meshopt input.glb model.glb`; this keeps the node hierarchy.
+   - `thumbs/<GLB node name>.png`, one thumbnail per model, section or part.
+2. **Create `src/data/models/<model-id>.js`**, using `motor-jet.js` as the template:
+   - Each `node` must match an object name in the GLB. Missing nodes are logged in the browser console.
+   - Any depth of sections and parts works.
+   - Optional fields:
+     - `icon`: one of `aircraft`, `engine`, `fan`, `core`, `exhaust`, `part`.
+     - `video`: a URL; a "Watch video" link appears when it's set.
+3. **Register it** in `src/data/catalogModels.js`:
+   ```js
+   import myModel from './models/my-model.js'
+   export const catalogModels = [motorJet, myModel]
+   ```
 
-The main model is loaded from `/models/assembly.glb`; a detail route such as `/part/fasteners` loads `/models/parts/fasteners.glb`. `useGLTF.preload` warms the model caches when GLB mode is enabled. Both modes use the same scene lighting and route structure.
+Each GLB loads on first use and is cached by `useGLTF`.
 
-## Add a component
+## Deploy
 
-The sample mapping in `src/data/modelParts.js` includes nine assemblies, from the air intake through the compressor, combustor, turbine, shaft, bearing, and exhaust, plus the split casing and its small screws. Each entry's `id` maps to its isolated detail asset at `public/models/parts/<id>.glb`, `meshNames` map GLTF raycast targets to routes, and `coordinates` place main-scene hotspots.
-
-## Workspace navigation
-
-The collapsible sidebar links to the dashboard, model library, upload dialog, 3D viewer, component categories, project pages, and administration options. Component rows open interactive detail routes. Use **Upload models** or **3D Models → Upload Model** to select or drop multiple `.glb`/`.gltf` files, then use the viewer's model selector to switch between them. Meshes can be selected in the viewport or part list to isolate and frame them; use **Back to full model** to restore the complete assembly.
-
-Uploads use browser object URLs and remain local to the current page session; they are not sent to a server or persisted after reload. For each uploaded model, the viewer traverses its meshes and generates a `modelParts` record (mesh name, dimensions, material names, and selection ID) for every mesh through `createModelParts` in `src/data/modelParts.js`, preserving GLB traversal order. The numbered, clickable markers and part list use the same meshes and numbering; selecting a marker or part-list entry isolates the mesh and displays its description and appearance controls. The selected part's material appearance panel exposes base/emissive color, roughness, metalness, opacity, wireframe, and supported physical-material controls. Existing texture maps are indicated; texture images themselves remain those embedded in the model. The built-in turbine demo keeps its curated part descriptions and hotspots. URLs are revoked and cached Three.js resources disposed when a model is removed or the app unmounts. A `.gltf` file must embed its buffers and textures; for portability, use a self-contained `.glb`.
-
-The viewer dependencies are already declared in `package.json`: React, Three.js, `@react-three/fiber`, and `@react-three/drei`. Install and run with `npm install` and `npm run dev`. Styling uses the existing CSS design system in `src/styles.css`; Tailwind is not required.
+- **GitHub Pages:** pushing to `main` or `master` deploys through `.github/workflows/deploy.yml`. In the repository, set **Settings → Pages** to **GitHub Actions**. Asset paths use `import.meta.env.BASE_URL`, so the `/<repo>/` project path works.
+- **Any static host (for example Netlify):** build with `npm run build` and publish the `dist/` folder.
 
 ## Project map
 
-- `src/App.jsx` — routes, page transitions, model-view composition.
-- `src/components/3d/CanvasContainer.jsx` — WebGL canvas, suspense fallback, camera controls.
-- `src/components/3d/DynamicModelViewer.jsx` — uploaded GLTF loading, mesh selection, isolation, and bounds fitting.
-- `src/components/3d/modelResources.js` — GLTF cache clearing and GPU resource disposal.
-- `src/components/3d/LightingEnvironment.jsx` — shared lights, city environment, contact shadows.
-- `src/components/3d/MainModel.jsx` — main GLB/procedural model, mesh interactions, hotspots.
-- `src/components/3d/SubPartModel.jsx` — per-part GLB/procedural detail model and bounds fitting.
-- `src/components/ui/Hotspot.jsx` — 3D-pinned HTML annotations.
-- `src/components/ui/NavigationOverlay.jsx` — breadcrumbs and persistent navigation.
-- `src/components/ui/ModelSwitcher.jsx` — active model selection and removal.
-- `src/components/ui/UploadModal.jsx` — multi-file GLB/glTF upload and drag-and-drop.
-- `src/components/ui/AdminSidebar.jsx` — collapsible workspace sidebar and navigation.
-- `src/components/ui/WorkspacePage.jsx` — clickable workspace sections and local model selection.
-
-## Catalog models (MODELS menu)
-
-Built-in models listed under **MODELS** in the sidebar open at `#/explore/<model-id>` and drill down by GLB node name (`#/explore/<model-id>/<node>`). Selecting a section or part isolates it, frames it, and shows numbered markers for its children; the copy, thumbnail and index come from the model's data file.
-
-To add a model:
-
-1. Put the files in `public/models/catalog/<model-id>/`: a meshopt- or plain GLB as `model.glb`, and thumbnails as `thumbs/<GLB node name>.png`. To compress, run `npx gltf-transform meshopt input.glb model.glb`; this keeps the node hierarchy.
-2. Create `src/data/models/<model-id>.js`, using `motor-jet.js` as the template. Each `node` must match an object name in the GLB, and any depth of sections and parts works. The optional `icon` is one of `aircraft`, `engine`, `fan`, `core`, `exhaust`, `part`. The optional `video` is a URL.
-3. Import it and add it to `catalogModels` in `src/data/catalogModels.js`.
-
-The sidebar tree, markers and pages are generated from that list. Each GLB loads on first use.
+- `src/App.jsx`: app shell, routes, and the redirect to the first model.
+- `src/components/ui/AdminSidebar.jsx`: collapsible sidebar.
+- `src/components/ui/CatalogSidebarTree.jsx`: the MODELS tree (model → sections → parts).
+- `src/components/ui/CatalogScene.jsx`: model, section and part page (copy, index, breadcrumb).
+- `src/components/3d/CatalogModelViewer.jsx`: GLB loading, isolation, framing and marker placement.
+- `src/components/3d/CanvasContainer.jsx`: WebGL canvas, loading state and orbit controls.
+- `src/components/3d/LightingEnvironment.jsx`: shared lights and environment.
+- `src/components/ui/Hotspot.jsx`: 3D-pinned numbered markers.
+- `src/data/catalogModels.js`: model registry and helpers.
+- `src/data/models/motor-jet.js`: Motor Jet 1.0A content.
