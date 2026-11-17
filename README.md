@@ -57,3 +57,15 @@ The viewer dependencies are already declared in `package.json`: React, Three.js,
 - `src/components/ui/UploadModal.jsx` — multi-file GLB/glTF upload and drag-and-drop.
 - `src/components/ui/AdminSidebar.jsx` — collapsible workspace sidebar and navigation.
 - `src/components/ui/WorkspacePage.jsx` — clickable workspace sections and local model selection.
+
+## Catalog models (MODELS menu)
+
+Built-in models listed under **MODELS** in the sidebar open at `#/explore/<model-id>` and drill down by GLB node name (`#/explore/<model-id>/<node>`). Selecting a section or part isolates it, frames it, and shows numbered markers for its children; the copy, thumbnail and index come from the model's data file.
+
+To add a model:
+
+1. Put the files in `public/models/catalog/<model-id>/`: a meshopt- or plain GLB as `model.glb`, and thumbnails as `thumbs/<GLB node name>.png`. To compress, run `npx gltf-transform meshopt input.glb model.glb`; this keeps the node hierarchy.
+2. Create `src/data/models/<model-id>.js`, using `motor-jet.js` as the template. Each `node` must match an object name in the GLB, and any depth of sections and parts works. The optional `icon` is one of `aircraft`, `engine`, `fan`, `core`, `exhaust`, `part`. The optional `video` is a URL.
+3. Import it and add it to `catalogModels` in `src/data/catalogModels.js`.
+
+The sidebar tree, markers and pages are generated from that list. Each GLB loads on first use.

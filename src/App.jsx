@@ -8,6 +8,7 @@ import MainModel from './components/3d/MainModel.jsx'
 import SubPartModel from './components/3d/SubPartModel.jsx'
 import { releaseUploadedModel } from './components/3d/modelResources.js'
 import AdminSidebar from './components/ui/AdminSidebar.jsx'
+import CatalogScene from './components/ui/CatalogScene.jsx'
 import ModelSwitcher from './components/ui/ModelSwitcher.jsx'
 import MaterialAppearanceControls from './components/ui/MaterialAppearanceControls.jsx'
 import NavigationOverlay from './components/ui/NavigationOverlay.jsx'
@@ -270,6 +271,7 @@ function App() {
   const routes = useRoutes([
     { path: '/', element: <MainScene models={models} activeModelId={activeModelId} onSelectModel={selectModel} onDeleteModel={removeModel} onOpenUpload={() => setUploadOpen(true)} /> },
     { path: '/part/:partId', element: <PartScene /> },
+    { path: '/explore/:modelId/:nodeId?', element: <CatalogScene /> },
     { path: '/workspace/dashboard', element: <WorkspacePage models={models} onOpenUpload={() => setUploadOpen(true)} onSelectModel={selectModel} /> },
     { path: '/models/library', element: <WorkspacePage models={models} onOpenUpload={() => setUploadOpen(true)} onSelectModel={selectModel} onDeleteModel={removeModel} /> },
     { path: '/models/upload', element: <WorkspacePage models={models} onOpenUpload={() => setUploadOpen(true)} /> },

@@ -16,6 +16,7 @@ import {
   Users,
   Waypoints,
 } from 'lucide-react'
+import CatalogSidebarTree from './CatalogSidebarTree.jsx'
 
 const menuGroups = [
   {
@@ -88,6 +89,7 @@ export default function AdminSidebar() {
       </button>
 
       <nav className="sidebar-navigation" aria-label="Workspace navigation">
+        <CatalogSidebarTree collapsed={collapsed} onExpand={() => setCollapsed(false)} />
         {!collapsed && <div className="sidebar-section-label">MAIN MENU</div>}
         <NavLink
           to="/workspace/dashboard"

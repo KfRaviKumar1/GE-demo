@@ -679,3 +679,19 @@ a { text-decoration: none; }
   .part-index { right: 7%; bottom: 12%; font-size: 7px; }
   .next-part { right: 7%; bottom: 21px; font-size: 7px; }
 }
+
+/* Catalog models (MODELS section in the sidebar + /explore pages) */
+.sidebar-link > .catalog-toggle, .catalog-toggle { display: grid; flex: 0 0 auto; width: 20px; height: 20px; place-items: center; margin-right: -4px; color: #858680; border-radius: 4px; }
+.catalog-toggle:hover { color: #171815; background: #ececea; }
+.catalog-section { width: 100%; background: transparent; border: 0; text-align: left; font: inherit; font-size: 12px; cursor: pointer; }
+.catalog-section > span:nth-of-type(1) { flex: 1; }
+.catalog-icon { flex: 0 0 auto; color: #777871; }
+.catalog-within { color: #181915; font-weight: 500; }
+.catalog-submenu-nested { margin: 2px 0 6px 15px; }
+.catalog-part { justify-content: space-between; text-decoration: none; }
+.catalog-num { color: #a4a49d; font-family: var(--mono); font-size: 9px; }
+.sidebar-sublink-active .catalog-num { color: var(--accent); }
+.catalog-thumb { display: block; width: 100%; max-width: 260px; margin-top: 22px; border: 1px solid var(--line); border-radius: 8px; background: #e8e7e2; }
+.catalog-video { display: inline-flex; align-items: center; gap: 8px; margin-top: 16px; color: #66675f; font-family: var(--mono); font-size: 9px; letter-spacing: .1em; text-decoration: none; pointer-events: auto; }
+.catalog-video:hover { color: var(--accent); }
+.index-row-current { color: var(--accent); }
