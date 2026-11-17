@@ -7,10 +7,6 @@ import LightingEnvironment from '../3d/LightingEnvironment.jsx'
 import { catalogPath, getAncestors, getCatalogItem } from '../../data/catalogModels.js'
 
 const MODE_LABELS = { opaque: 'Opaque', transparent: 'Transparent' }
-// Per model: the picked tool and which parts are see-through. Kept while
-// moving between its sections and parts (each route change remounts this page).
-const toolByModel = new Map()
-const seeThroughByModel = new Map()
 
 // Page for a catalog model, section or part:
 // breadcrumb bar on top, the 3D view with an info panel beside it,
@@ -23,24 +19,27 @@ export default function CatalogScene() {
   const [progress, setProgress] = useState(null)
   // Models that list `displayModes` get Opaque / Transparent tools: pick one,
   // then click parts of the model to apply it to just those parts.
+  // State is per component page: opening another model, section or part
+  // remounts this page, so it always starts with no tool and nothing see-through.
   const modes = item?.displayModes ?? item?.model.displayModes ?? []
-  const [tool, setTool] = useState(() => toolByModel.get(modelId) ?? null)
-  const [seeThroughParts, setSeeThroughParts] = useState(() => seeThroughByModel.get(modelId) ?? new Set())
+  const [tool, setTool] = useState(null)
+  const [seeThroughParts, setSeeThroughParts] = useState(() => new Set())
+  const resetParts = () => setSeeThroughParts(new Set())
   const pickTool = (mode) => {
-    const next = tool === mode ? null : mode // clicking the active tool turns it off
-    toolByModel.set(modelId, next)
-    setTool(next)
-  }
-  const updateSeeThrough = (next) => {
-    seeThroughByModel.set(modelId, next)
-    setSeeThroughParts(next)
+    if (tool === mode) {
+      // Clicking the active tool again turns it off and resets the model.
+      setTool(null)
+      resetParts()
+      return
+    }
+    setTool(mode)
   }
   const setSeeThrough = (node, seeThrough) => {
     if (seeThroughParts.has(node) === seeThrough) return
     const next = new Set(seeThroughParts)
     if (seeThrough) next.add(node)
     else next.delete(node)
-    updateSeeThrough(next)
+    setSeeThroughParts(next)
   }
 
   if (!item) {
@@ -107,7 +106,7 @@ export default function CatalogScene() {
                 </button>
               ))}
               {seeThroughParts.size > 0 && (
-                <button type="button" className="catalog-modes-reset" onClick={() => updateSeeThrough(new Set())}>
+                <button type="button" className="catalog-modes-reset" onClick={resetParts}>
                   Reset
                 </button>
               )}
