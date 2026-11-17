@@ -188,6 +188,9 @@ a { text-decoration: none; }
 
 .hotspot-label, .hotspot-arrow { display: none; }
 .hotspot-pulse { position: absolute; inset: -5px; border: 1px solid rgba(189,137,83,.24); border-radius: 5px; animation: pulse 2.8s ease-out infinite; pointer-events: none; }
+/* Marker point is behind other geometry from the current view */
+.hotspot { transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease, opacity 160ms ease; }
+.hotspot-occluded { opacity: 0; pointer-events: none; }
 
 .canvas-loader { display: flex; align-items: center; gap: 9px; color: #797970; font-family: var(--mono); font-size: 10px; white-space: nowrap; }
 .canvas-loader span { width: 7px; height: 7px; background: var(--accent); border-radius: 50%; animation: pulse 1.2s ease-out infinite; }
@@ -249,12 +252,16 @@ a { text-decoration: none; }
 .catalog-reset:hover { background: #f7f7f6; }
 
 .catalog-stage { display: grid; grid-template-columns: minmax(0, 1fr) 320px; min-height: 0; }
-.catalog-viewer { position: relative; min-height: 0; overflow: hidden; background: var(--viewer-bg); }
+.catalog-viewer { position: relative; min-height: 0; overflow: hidden; background: transparent; }
+.catalog-modes { position: absolute; z-index: 3; top: 14px; left: 16px; display: flex; padding: 3px; border: 1px solid #e1e1df; border-radius: 8px; background: rgba(255,255,255,.92); }
+.catalog-modes button { padding: 6px 12px; color: #62635f; background: transparent; border: 0; border-radius: 6px; font-size: 12px; }
+.catalog-modes button:hover { color: #171815; }
+.catalog-modes button[aria-pressed="true"] { color: #fff; background: #242520; }
 .catalog-hint { position: absolute; z-index: 3; left: 16px; bottom: 12px; display: flex; align-items: center; gap: 8px; color: #85857c; font-family: var(--mono); font-size: 9px; letter-spacing: .08em; pointer-events: none; }
 .catalog-hint svg { color: #a78361; }
 .catalog-hint > span { color: #c3b4a3; }
 .canvas-error { position: absolute; inset: 0; display: grid; place-items: center; padding: 20px; color: #797970; font-family: var(--mono); font-size: 11px; text-align: center; }
-.catalog-loader { position: absolute; z-index: 4; inset: 0; display: grid; place-content: center; gap: 10px; background: var(--viewer-bg); }
+.catalog-loader { position: absolute; z-index: 4; inset: 0; display: grid; place-content: center; gap: 10px; background: #fff; }
 .catalog-loader span { color: #797970; font-family: var(--mono); font-size: 11px; text-align: center; }
 .catalog-loader-bar { width: 240px; height: 4px; overflow: hidden; border-radius: 2px; background: #dddcd6; }
 .catalog-loader-bar i { display: block; height: 100%; background: var(--accent); transition: width 200ms ease; }

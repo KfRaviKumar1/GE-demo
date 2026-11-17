@@ -1,12 +1,14 @@
-import { Component, useEffect, useMemo } from 'react'
+import { Component, useEffect, useMemo, useRef } from 'react'
 import { Bounds, Html, useBounds } from '@react-three/drei'
-import { useLoader, useThree } from '@react-three/fiber'
-import { Box3, Sphere, Vector3 } from 'three'
+import { useFrame, useLoader, useThree } from '@react-three/fiber'
+import { Box3, Raycaster, Sphere, Vector3 } from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
-import Hotspot from '../ui/Hotspot.jsx'
+import { acceleratedRaycast, computeBoundsTree } from 'three-mesh-bvh'
+import { ArrowRight } from 'lucide-react'
 
 const VIEW_DIRECTION = new Vector3(1, 0.45, 1).normalize()
+const TRANSPARENT_OPACITY = 0.28
 
 const isInside = (object, root) => {
   for (let current = object; current; current = current.parent) if (current === root) return true
@@ -55,12 +57,22 @@ function computeAnchors(model, scene) {
       for (let i = 0; i < position.count; i += step) {
         vertex.fromBufferAttribute(position, i).applyMatrix4(object.matrixWorld)
         const distance = vertex.distanceToSquared(aim)
-        if (distance < best) { best = distance; anchor = vertex.toArray() }
+        if (distance < best) { best = distance; anchor = vertex.clone() }
       }
     })
     if (anchor) anchors.set(item, anchor)
   })
   return anchors
+}
+
+// Spatial index per geometry so occlusion rays stay cheap on large models.
+// Built once and kept with the cached GLTF.
+function ensureBoundsTrees(root) {
+  root.traverse((object) => {
+    if (!object.isMesh) return
+    if (!object.geometry.boundsTree) computeBoundsTree.call(object.geometry)
+    object.raycast = acceleratedRaycast
+  })
 }
 
 function FocusItem({ scene, item }) {
@@ -85,32 +97,118 @@ function FocusItem({ scene, item }) {
   return null
 }
 
+// Numbered marker pinned to a point on the model (same look as the hotspots).
+function Marker({ position, item, onSelect, markerRef }) {
+  return (
+    <Html position={position} center zIndexRange={[20, 0]}>
+      <button
+        ref={markerRef}
+        className="hotspot"
+        onClick={(event) => { event.stopPropagation(); onSelect(item) }}
+        aria-label={`Explore ${item.name}`}
+      >
+        <span className="hotspot-pulse" />
+        <span className="hotspot-number">{item.id}</span>
+        <span className="hotspot-label">{item.name}</span>
+        <ArrowRight className="hotspot-arrow" size={14} />
+      </button>
+    </Html>
+  )
+}
+
+// Hides markers whose point is behind other geometry from the current view
+// (e.g. after rotating the model), and shows them again when it comes back
+// into view. Checked only when the camera moves.
+function useMarkerOcclusion({ target, markers, anchors, refs, enabled }) {
+  const camera = useThree((state) => state.camera)
+  const raycaster = useMemo(() => {
+    const caster = new Raycaster()
+    caster.firstHitOnly = true
+    return caster
+  }, [])
+  const lastView = useRef(null)
+  const direction = useMemo(() => new Vector3(), [])
+  const radius = useMemo(() => new Box3().setFromObject(target).getBoundingSphere(new Sphere()).radius, [target])
+
+  useEffect(() => { lastView.current = null }, [target, markers, enabled])
+
+  useFrame(() => {
+    const view = camera.matrixWorld.elements.join(',')
+    if (view === lastView.current) return
+    lastView.current = view
+
+    markers.forEach((item, index) => {
+      const element = refs.current[index]
+      if (!element) return
+      let hidden = false
+      if (enabled) {
+        const point = anchors.get(item)
+        const distance = camera.position.distanceTo(point)
+        raycaster.set(camera.position, direction.subVectors(point, camera.position).normalize())
+        raycaster.far = distance
+        const hit = raycaster.intersectObject(target, true)[0]
+        hidden = Boolean(hit && hit.distance < distance - Math.max(radius * 0.02, distance * 0.002))
+      }
+      element.classList.toggle('hotspot-occluded', hidden)
+    })
+  })
+}
+
 const useMeshopt = (loader) => loader.setMeshoptDecoder(MeshoptDecoder)
 
-function CatalogModelScene({ item, onSelect, onProgress }) {
+function CatalogModelScene({ item, onSelect, onProgress, displayMode = 'opaque' }) {
   // useLoader (not drei's useGLTF) so download progress can be reported.
   const { scene } = useLoader(GLTFLoader, item.model.file, useMeshopt, onProgress)
   const anchors = useMemo(() => computeAnchors(item.model, scene), [item.model, scene])
+  const target = scene.getObjectByName(item.node) ?? scene
+  const markers = useMemo(() => (item.children ?? []).filter((child) => anchors.has(child)), [item, anchors])
+  const markerRefs = useRef([])
+
+  useMemo(() => ensureBoundsTrees(scene), [scene])
 
   // Show only the selected item (and everything under it).
   useEffect(() => {
-    const target = scene.getObjectByName(item.node) ?? scene
     scene.traverse((object) => { if (object.isMesh) object.visible = isInside(object, target) })
     return () => scene.traverse((object) => { if (object.isMesh) object.visible = true })
-  }, [scene, item])
+  }, [scene, target])
 
-  const markers = (item.children ?? []).filter((child) => anchors.has(child))
+  // Transparent mode: swap the visible part's materials for see-through copies.
+  useEffect(() => {
+    if (displayMode !== 'transparent') return
+    const originals = []
+    const seeThrough = (material) => {
+      const copy = material.clone()
+      copy.transparent = true
+      copy.opacity = TRANSPARENT_OPACITY
+      copy.depthWrite = false
+      return copy
+    }
+    target.traverse((object) => {
+      if (!object.isMesh) return
+      originals.push([object, object.material])
+      object.material = Array.isArray(object.material) ? object.material.map(seeThrough) : seeThrough(object.material)
+    })
+    return () => originals.forEach(([object, material]) => {
+      ;(Array.isArray(object.material) ? object.material : [object.material]).forEach((copy) => copy.dispose())
+      object.material = material
+    })
+  }, [target, displayMode])
+
+  // In transparent mode every marker stays visible: nothing hides it.
+  useMarkerOcclusion({ target, markers, anchors, refs: markerRefs, enabled: displayMode !== 'transparent' })
 
   return (
     <Bounds fit clip observe margin={1.25}>
       <FocusItem scene={scene} item={item} />
       <group>
         <primitive object={scene} />
-        {markers.map((child) => (
-          <Hotspot
+        {markers.map((child, index) => (
+          <Marker
             key={child.node}
-            part={{ coordinates: anchors.get(child), number: child.id, name: child.name }}
-            onClick={() => onSelect(child)}
+            position={anchors.get(child)}
+            item={child}
+            onSelect={onSelect}
+            markerRef={(element) => { markerRefs.current[index] = element }}
           />
         ))}
       </group>

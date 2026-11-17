@@ -5,8 +5,9 @@
 //   3. Import it and add it to catalogModels below
 // The sidebar tree, hotspots, part index and detail copy are built from this list.
 import motorJet from './models/motor-jet.js'
+import gasTurbineCutaway from './models/gas-turbine-cutaway.js'
 
-export const catalogModels = [motorJet]
+export const catalogModels = [motorJet, gasTurbineCutaway]
 
 const assetBase = `${import.meta.env.BASE_URL}models/catalog`
 
