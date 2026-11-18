@@ -404,9 +404,7 @@ function CatalogModelScene({ item, onSelect, onProgress, tool = null, seeThrough
       <FocusItem scene={scene} item={item} fitBox={fitBox} />
       <group>
         <primitive object={scene} />
-        {/* Hotspots are hidden while the model is exploded (slider above 0)
-            and come back when it is put back together. */}
-        {explode === 0 && markers.map((child, index) => (
+        {markers.map((child, index) => (
           <Marker
             key={child.node}
             anchor={anchors.get(child)}
