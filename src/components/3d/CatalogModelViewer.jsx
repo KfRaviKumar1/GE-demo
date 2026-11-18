@@ -353,6 +353,9 @@ function useExplode({ scene, animations, target, clipName, amount }) {
 
 const useMeshopt = (loader) => loader.setMeshoptDecoder(MeshoptDecoder)
 
+// Starts downloading a model into the same cache the viewer reads from.
+export const preloadModel = (model) => useLoader.preload(GLTFLoader, model.file, useMeshopt)
+
 // `tool` is 'transparent', 'opaque' or null; `seeThroughParts` holds the node
 // names of parts currently see-through; `onSetSeeThrough(node, boolean)`;
 // `explode` (0..1) drives the Explode slider on the model's own page.

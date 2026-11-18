@@ -21,14 +21,24 @@ Routes are hash-based, so they also work on static hosts such as GitHub Pages.
 
 - `#/explore/<model-id>` is the full model.
 - `#/explore/<model-id>/<GLB node name>` is a section or part.
+- `#/login` is the sign-in page.
 - Any other URL redirects to the first model.
+
+## Sign-in
+
+Every page needs a sign-in. It is a static, client-side check against one account set in `src/auth.js`, so it keeps casual visitors out but is not real security: the credentials ship in the JavaScript bundle.
+
+- The session lasts for the browser tab. A normal refresh keeps it.
+- **Log out** in the top bar, closing the tab, or a hard refresh (Ctrl+Shift+R, Ctrl+F5, Shift+F5, Cmd+Shift+R) ends it and shows the sign-in page. The Back button can't return to the viewer after that.
+- **Remember me** only remembers the username on this device.
+- The first model starts downloading while the sign-in page is open, so it shows right after signing in.
 
 ## Adding a model
 
 The sidebar tree, markers and pages are all generated from the model data, so no UI code changes are needed.
 
 1. **Add the files** to `public/models/catalog/<model-id>/`:
-   - `model.glb`, the 3D model. To compress it, run `npx gltf-transform meshopt input.glb model.glb`; this keeps the node hierarchy.
+   - `model.glb`, the 3D model. To compress it, run `npx gltf-transform meshopt input.glb model.glb --level high`; this keeps the node hierarchy and animations. If the model has no textures, removing its unused `TEXCOORD_0` attributes first saves more space.
    - `thumbs/<GLB node name>.png`, one thumbnail per model, section or part.
 2. **Create `src/data/models/<model-id>.js`**, using `motor-jet.js` as the template:
    - Each `node` must match an object name in the GLB. Missing nodes are logged in the browser console.
