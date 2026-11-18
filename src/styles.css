@@ -283,8 +283,9 @@ a { text-decoration: none; }
 .catalog-info h2 { margin: 6px 0 10px; color: #191a17; font-family: var(--display); font-size: 22px; font-weight: 600; letter-spacing: -.035em; }
 .catalog-info p { margin: 0; color: #55564f; font-size: 13px; line-height: 1.65; }
 .catalog-video { display: inline-flex; align-items: center; gap: 8px; margin-top: 18px; padding: 9px 16px 9px 13px; color: #fff; background: #242520; border: 0; border-radius: 999px; font: inherit; font-size: 12px; font-weight: 500; cursor: pointer; transition: background 150ms ease, transform 150ms ease; }
-.catalog-video:hover { background: var(--accent); }
-.catalog-video:active { transform: scale(.97); }
+.catalog-video:hover:not(:disabled) { background: var(--accent); }
+.catalog-video:active:not(:disabled) { transform: scale(.97); }
+.catalog-video:disabled { color: #9a9b94; background: #ececea; cursor: default; }
 
 /* Hotspot video, shown over the 3D view */
 .video-overlay { position: absolute; z-index: 6; inset: 0; display: grid; place-items: center; padding: 24px; background: rgba(24,25,21,.55); backdrop-filter: blur(4px); animation: video-fade 180ms ease; }

@@ -165,8 +165,8 @@ export default function CatalogScene() {
           <h2>{item.name}</h2>
           <p>{item.description}</p>
           {item.video && (
-            <button type="button" className="catalog-video" onClick={() => setVideoOpen(true)} aria-pressed={videoOpen}>
-              <Play size={14} fill="currentColor" /> Play video
+            <button type="button" className="catalog-video" onClick={() => setVideoOpen(true)} disabled={videoOpen}>
+              <Play size={14} fill="currentColor" /> {videoOpen ? 'Playing…' : 'Play video'}
             </button>
           )}
         </aside>
