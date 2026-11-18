@@ -277,6 +277,43 @@ function usePartClicks({ target, meshParts, tool, onSetSeeThrough }) {
   }, [camera, element, meshParts, onSetSeeThrough, raycaster, target, tool])
 }
 
+const TIMELINE_SAMPLES = 400
+
+// Maps the slider (0..1) to a time in the explode clip by how far the parts
+// have moved, not by time: the clip's own timing has idle stretches and slow
+// ease-ins (nothing moves for its first ~7%), so a time-based slider would
+// show no change for its first steps. Here every step moves the parts.
+function explodeTimeline(clip) {
+  const tracks = clip.tracks.filter((track) => track.name.endsWith('.position'))
+  if (!tracks.length) return (value) => value * clip.duration
+  const interpolants = tracks.map((track) => track.createInterpolant())
+  const starts = interpolants.map((interpolant) => Array.from(interpolant.evaluate(0)))
+  const times = []
+  const moved = [] // total distance of all parts from where they start, per sample
+  for (let i = 0; i <= TIMELINE_SAMPLES; i++) {
+    const time = (i / TIMELINE_SAMPLES) * clip.duration
+    let total = 0
+    interpolants.forEach((interpolant, k) => {
+      const [x, y, z] = interpolant.evaluate(time)
+      const [x0, y0, z0] = starts[k]
+      total += Math.hypot(x - x0, y - y0, z - z0)
+    })
+    times.push(time)
+    moved.push(Math.max(total, moved[i - 1] ?? 0)) // keep it non-decreasing
+  }
+  const full = moved[moved.length - 1]
+  if (!full) return (value) => value * clip.duration
+  return (value) => {
+    const wanted = Math.min(Math.max(value, 0), 1) * full
+    if (wanted <= 0) return 0
+    const i = moved.findIndex((distance) => distance >= wanted)
+    if (i <= 0) return times[Math.max(i, 0)]
+    const span = moved[i] - moved[i - 1]
+    const fraction = span > 0 ? (wanted - moved[i - 1]) / span : 1
+    return times[i - 1] + fraction * (times[i] - times[i - 1])
+  }
+}
+
 // Explode slider: holds the model's explode animation paused and moves it to
 // `amount` (0 = compact, 1 = fully exploded). Leaving the page stops the clip,
 // which puts every part back where it was, so other pages show the model compact.
@@ -290,9 +327,10 @@ function useExplode({ scene, animations, target, clipName, amount }) {
     const action = mixer.clipAction(clip)
     action.setLoop(LoopOnce, 1)
     action.clampWhenFinished = true
+    const timeAt = explodeTimeline(clip)
     const pose = (value) => {
       if (!action.isScheduled()) { action.play(); action.paused = true }
-      action.time = value * clip.duration
+      action.time = timeAt(value)
       mixer.update(0)
       scene.updateMatrixWorld(true)
     }
