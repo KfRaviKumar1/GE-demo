@@ -94,8 +94,17 @@ function computeViewAnchors(item, scene) {
     const visible = candidates.slice(0, MAX_VISIBILITY_TESTS).find(({ point }) => isVisibleFromEye(point))
     const chosen = visible ?? candidates[0]
     // Stored relative to the mesh it sits on, so the marker follows the part
-    // when it moves (e.g. the Explode slider).
-    if (chosen) anchors.set(child, { mesh: chosen.mesh, local: chosen.mesh.worldToLocal(chosen.point.clone()) })
+    // when it moves (e.g. the Explode slider). A part with no visible spot
+    // from the opening view (fully enclosed by others, like fan blades inside
+    // a cowl) gets an `enclosed` marker that is never hidden, so it can
+    // always be clicked.
+    if (chosen) {
+      anchors.set(child, {
+        mesh: chosen.mesh,
+        local: chosen.mesh.worldToLocal(chosen.point.clone()),
+        enclosed: !visible,
+      })
+    }
   })
 
   anchorCache.set(item, anchors)
@@ -200,7 +209,9 @@ function useMarkerOcclusion({ target, markers, anchors, refs, version, moved }) 
     markers.forEach((item, index) => {
       const element = refs.current[index]
       if (!element) return
-      const point = anchorPosition(anchors.get(item), anchorPoint)
+      const anchor = anchors.get(item)
+      if (anchor.enclosed) { element.classList.remove('hotspot-occluded'); return } // always reachable
+      const point = anchorPosition(anchor, anchorPoint)
       const distance = camera.position.distanceTo(point)
       raycaster.set(camera.position, direction.subVectors(point, camera.position).normalize())
       raycaster.far = distance

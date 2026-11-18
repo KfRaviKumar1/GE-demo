@@ -242,6 +242,9 @@ a { text-decoration: none; }
 .catalog-submenu-nested { margin: 2px 0 6px 15px; }
 .catalog-part { justify-content: space-between; text-decoration: none; }
 .catalog-num { color: #a4a49d; font-family: var(--mono); font-size: 9px; }
+.catalog-video-mark { flex: 0 0 auto; margin-left: auto; color: var(--accent); }
+.catalog-part .catalog-video-mark + .catalog-num { margin-left: 6px; }
+.catalog-video-mark-muted { opacity: .7; }
 .sidebar-sublink-active .catalog-num { color: var(--accent); }
 
 /* Catalog page: breadcrumb bar / viewer + info panel / thumbnail strip */

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { NavLink, useMatch, useNavigate } from 'react-router-dom'
-import { Box, ChevronDown, ChevronRight, CircleDot, Cylinder, Fan, Plane, Wind } from 'lucide-react'
+import { Box, ChevronDown, ChevronRight, CircleDot, CirclePlay, Cylinder, Fan, Plane, Wind } from 'lucide-react'
 import { catalogModels, catalogPath, getCatalogItem } from '../../data/catalogModels.js'
 
 // Icon names a model or section can pick with `icon: '<name>'` in its data file.
@@ -12,6 +12,19 @@ const isAncestor = (item, of) => {
   for (let current = of?.parent; current; current = current.parent) if (current === item) return true
   return false
 }
+
+// Parts with a video get a video icon; a folded group shows a muted one when
+// something inside it has a video, so it can be found without opening everything.
+const containsVideo = (item) => Boolean(item.video) || Boolean(item.children?.some(containsVideo))
+const VideoMark = ({ muted }) => (
+  <CirclePlay
+    size={13}
+    className={`catalog-video-mark ${muted ? 'catalog-video-mark-muted' : ''}`}
+    aria-label={muted ? 'Contains a video' : 'Has a video'}
+  >
+    <title>{muted ? 'Contains a video' : 'Has a video'}</title>
+  </CirclePlay>
+)
 
 // MODELS section of the sidebar: model → sections → parts, built from the catalog data.
 // A name selects the item (or folds/unfolds it when it is already selected);
@@ -39,7 +52,7 @@ export default function CatalogSidebarTree({ collapsed, onExpand }) {
 
   const select = (item) => {
     if (item === current) toggle(item)
-    else navigate(catalogPath(item))
+    else navigate(catalogPath(item), { state: { playVideo: Boolean(item.video) } })
   }
 
   const chevron = (item) => (
@@ -57,10 +70,12 @@ export default function CatalogSidebarTree({ collapsed, onExpand }) {
     <NavLink
       key={part.node}
       to={catalogPath(part)}
+      state={{ playVideo: Boolean(part.video) }}
       end
       className={`sidebar-sublink catalog-part ${part === current ? 'sidebar-sublink-active' : ''}`}
     >
       <span>{part.name}</span>
+      {part.video && <VideoMark />}
       <span className="catalog-num">{part.id}</span>
     </NavLink>
   )
@@ -74,6 +89,7 @@ export default function CatalogSidebarTree({ collapsed, onExpand }) {
         <button type="button" className={`sidebar-sublink catalog-section ${state}`} onClick={() => select(section)}>
           <Icon size={14} className="catalog-icon" />
           <span>{section.name}</span>
+          {!isOpen(section) && containsVideo(section) && <VideoMark muted />}
           {chevron(section)}
         </button>
         {isOpen(section) && (
@@ -102,7 +118,7 @@ export default function CatalogSidebarTree({ collapsed, onExpand }) {
               title={collapsed ? model.name : undefined}
             >
               <Icon size={16} />
-              {!collapsed && <><span>{model.name}</span>{chevron(model)}</>}
+              {!collapsed && <><span>{model.name}</span>{!isOpen(model) && containsVideo(model) && <VideoMark muted />}{chevron(model)}</>}
             </button>
             {!collapsed && isOpen(model) && (
               <div className="sidebar-submenu">{model.children.map(renderSection)}</div>

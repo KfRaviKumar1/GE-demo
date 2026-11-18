@@ -1,5 +1,5 @@
-import { Fragment, useCallback, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Fragment, useCallback, useEffect, useState } from 'react'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, ChevronRight, Play, Rotate3D } from 'lucide-react'
 import CanvasContainer from '../3d/CanvasContainer.jsx'
 import CatalogModelViewer, { initialCameraPosition } from '../3d/CatalogModelViewer.jsx'
@@ -31,8 +31,15 @@ export default function CatalogScene() {
   const hasExplode = Boolean(item && !item.parent && item.model.explode)
   const [explode, setExplode] = useState(0)
   // Hotspot video, played over the 3D view (closed again with the × button).
-  const [videoOpen, setVideoOpen] = useState(false)
+  // Opening a part with a video from its hotspot, card or sidebar row starts
+  // the video straight away (`playVideo` in the navigation state).
+  const location = useLocation()
+  const [videoOpen, setVideoOpen] = useState(() => Boolean(location.state?.playVideo && item?.video))
   const closeVideo = useCallback(() => setVideoOpen(false), [])
+  // Use the play request once, so Back/Forward to this page doesn't replay it.
+  useEffect(() => {
+    if (location.state?.playVideo) navigate(location.pathname, { replace: true, state: null })
+  }, [location, navigate])
   const pickTool = (mode) => {
     if (tool === mode) {
       // Clicking the active tool again turns it off and resets the model.
@@ -99,7 +106,7 @@ export default function CatalogScene() {
             <LightingEnvironment />
             <CatalogModelViewer
               item={item}
-              onSelect={(child) => navigate(catalogPath(child))}
+              onSelect={(child) => navigate(catalogPath(child), { state: { playVideo: Boolean(child.video) } })}
               onProgress={(event) => event.total && setProgress(Math.round((event.loaded / event.total) * 100))}
               tool={modes.length ? tool : null}
               seeThroughParts={seeThroughParts}
@@ -172,6 +179,7 @@ export default function CatalogScene() {
               key={card.node}
               className={`catalog-card ${card === item ? 'catalog-card-active' : ''}`}
               to={catalogPath(card)}
+              state={{ playVideo: Boolean(card.video) }}
               aria-current={card === item ? 'page' : undefined}
             >
               <img src={card.thumb} alt="" loading="lazy" />
