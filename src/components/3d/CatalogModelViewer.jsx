@@ -1,7 +1,7 @@
 import { Component, useEffect, useMemo, useRef } from 'react'
 import { Bounds, Html, useBounds } from '@react-three/drei'
 import { useFrame, useLoader, useThree } from '@react-three/fiber'
-import { Box3, Raycaster, Sphere, Vector3 } from 'three'
+import { AnimationClip, AnimationMixer, Box3, LoopOnce, Raycaster, Sphere, Vector3 } from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import { acceleratedRaycast, computeBoundsTree } from 'three-mesh-bvh'
@@ -80,17 +80,25 @@ function computeViewAnchors(item, scene) {
       const position = mesh.geometry.attributes.position
       for (let i = 0; i < position.count; i += step) {
         const point = new Vector3().fromBufferAttribute(position, i).applyMatrix4(mesh.matrixWorld)
-        candidates.push({ point, distance: point.distanceToSquared(aim) })
+        candidates.push({ point, mesh, distance: point.distanceToSquared(aim) })
       }
     })
     candidates.sort((a, b) => a.distance - b.distance)
     const visible = candidates.slice(0, MAX_VISIBILITY_TESTS).find(({ point }) => isVisibleFromEye(point))
-    const anchor = (visible ?? candidates[0])?.point
-    if (anchor) anchors.set(child, anchor)
+    const chosen = visible ?? candidates[0]
+    // Stored relative to the mesh it sits on, so the marker follows the part
+    // when it moves (e.g. the Explode slider).
+    if (chosen) anchors.set(child, { mesh: chosen.mesh, local: chosen.mesh.worldToLocal(chosen.point.clone()) })
   })
 
   anchorCache.set(item, anchors)
   return anchors
+}
+
+// Current world position of a marker anchor (follows its part as it moves).
+function anchorPosition(anchor, out = new Vector3()) {
+  anchor.mesh.updateWorldMatrix(true, false)
+  return out.copy(anchor.local).applyMatrix4(anchor.mesh.matrixWorld)
 }
 
 // Spatial index per geometry so occlusion rays stay cheap on large models.
@@ -103,7 +111,9 @@ function ensureBoundsTrees(root) {
   })
 }
 
-function FocusItem({ scene, item }) {
+// `fitBox` (optional) is the area to frame instead of the item itself, e.g. the
+// fully exploded model so it stays in view across the Explode slider.
+function FocusItem({ scene, item, fitBox }) {
   const bounds = useBounds()
   const camera = useThree((state) => state.camera)
   const controls = useThree((state) => state.controls)
@@ -113,22 +123,26 @@ function FocusItem({ scene, item }) {
       const target = scene.getObjectByName(item.node) ?? scene
       // Bounds.fit() keeps the current view direction, so first look at the
       // target from the standard 3/4 angle (models can be far from the origin).
-      const sphere = new Box3().setFromObject(target, true).getBoundingSphere(new Sphere())
+      const sphere = (fitBox ?? new Box3().setFromObject(target, true)).getBoundingSphere(new Sphere())
       camera.position.copy(openingEye(sphere)) // same viewpoint the marker spots are chosen for
       camera.lookAt(sphere.center)
       controls?.target.copy(sphere.center)
-      bounds.refresh(target).fit().clip()
+      bounds.refresh(fitBox ?? target).fit().clip()
     })
     return () => window.cancelAnimationFrame(frame)
-  }, [bounds, camera, controls, scene, item])
+  }, [bounds, camera, controls, scene, item, fitBox])
 
   return null
 }
 
 // Numbered marker pinned to a point on the model (same look as the hotspots).
-function Marker({ position, item, onSelect, markerRef }) {
+// It follows its part every frame, so it stays on the part when it moves.
+function Marker({ anchor, item, onSelect, markerRef }) {
+  const group = useRef()
+  useFrame(() => { if (group.current) anchorPosition(anchor, group.current.position) })
   return (
-    <Html position={position} center zIndexRange={[20, 0]}>
+    <group ref={group}>
+    <Html center zIndexRange={[20, 0]}>
       <button
         ref={markerRef}
         className="hotspot"
@@ -141,6 +155,7 @@ function Marker({ position, item, onSelect, markerRef }) {
         <ArrowRight className="hotspot-arrow" size={14} />
       </button>
     </Html>
+    </group>
   )
 }
 
@@ -149,16 +164,18 @@ function Marker({ position, item, onSelect, markerRef }) {
 // into view. See-through parts don't hide markers. Every marker is shown until
 // the user first moves the model; after that it is checked whenever the camera
 // moves or parts change transparency.
-function useMarkerOcclusion({ target, markers, anchors, refs, version }) {
+function useMarkerOcclusion({ target, markers, anchors, refs, version, moved }) {
   const camera = useThree((state) => state.camera)
   const controls = useThree((state) => state.controls)
   const raycaster = useMemo(() => new Raycaster(), [])
   const lastView = useRef(null)
   const userMoved = useRef(false)
   const direction = useMemo(() => new Vector3(), [])
+  const anchorPoint = useMemo(() => new Vector3(), [])
   const radius = useMemo(() => new Box3().setFromObject(target).getBoundingSphere(new Sphere()).radius, [target])
 
-  useEffect(() => { lastView.current = null }, [target, markers, version])
+  // Re-check when the parts move (Explode slider) or change transparency.
+  useEffect(() => { lastView.current = null }, [target, markers, version, moved])
 
   useEffect(() => {
     if (!controls) return
@@ -176,7 +193,7 @@ function useMarkerOcclusion({ target, markers, anchors, refs, version }) {
     markers.forEach((item, index) => {
       const element = refs.current[index]
       if (!element) return
-      const point = anchors.get(item)
+      const point = anchorPosition(anchors.get(item), anchorPoint)
       const distance = camera.position.distanceTo(point)
       raycaster.set(camera.position, direction.subVectors(point, camera.position).normalize())
       raycaster.far = distance
@@ -242,13 +259,50 @@ function usePartClicks({ target, meshParts, tool, onSetSeeThrough }) {
   }, [camera, element, meshParts, onSetSeeThrough, raycaster, target, tool])
 }
 
+// Explode slider: holds the model's explode animation paused and moves it to
+// `amount` (0 = compact, 1 = fully exploded). Leaving the page stops the clip,
+// which puts every part back where it was, so other pages show the model compact.
+// Returns the area covering both the compact and the fully exploded model.
+function useExplode({ scene, animations, target, clipName, amount }) {
+  const setup = useMemo(() => {
+    if (!clipName) return null
+    const clip = AnimationClip.findByName(animations, clipName)
+    if (!clip) { console.warn('Animation clip not found:', clipName); return null }
+    const mixer = new AnimationMixer(scene)
+    const action = mixer.clipAction(clip)
+    action.setLoop(LoopOnce, 1)
+    action.clampWhenFinished = true
+    const pose = (value) => {
+      if (!action.isScheduled()) { action.play(); action.paused = true }
+      action.time = value * clip.duration
+      mixer.update(0)
+      scene.updateMatrixWorld(true)
+    }
+    pose(1)
+    const box = new Box3().setFromObject(target)
+    pose(0)
+    box.union(new Box3().setFromObject(target))
+    return { mixer, action, pose, box }
+  }, [scene, animations, target, clipName])
+
+  useEffect(() => { setup?.pose(amount) }, [setup, amount])
+  useEffect(() => () => {
+    if (!setup) return
+    setup.action.stop() // restores the parts' original positions
+    setup.mixer.uncacheRoot(scene)
+  }, [setup, scene])
+
+  return setup?.box ?? null
+}
+
 const useMeshopt = (loader) => loader.setMeshoptDecoder(MeshoptDecoder)
 
 // `tool` is 'transparent', 'opaque' or null; `seeThroughParts` holds the node
-// names of parts currently see-through; `onSetSeeThrough(node, boolean)`.
-function CatalogModelScene({ item, onSelect, onProgress, tool = null, seeThroughParts, onSetSeeThrough }) {
+// names of parts currently see-through; `onSetSeeThrough(node, boolean)`;
+// `explode` (0..1) drives the Explode slider on the model's own page.
+function CatalogModelScene({ item, onSelect, onProgress, tool = null, seeThroughParts, onSetSeeThrough, explode = 0 }) {
   // useLoader (not drei's useGLTF) so download progress can be reported.
-  const { scene } = useLoader(GLTFLoader, item.model.file, useMeshopt, onProgress)
+  const { scene, animations } = useLoader(GLTFLoader, item.model.file, useMeshopt, onProgress)
   useMemo(() => ensureBoundsTrees(scene), [scene]) // before the anchors: they use raycasts
   const anchors = useMemo(() => computeViewAnchors(item, scene), [item, scene])
   const target = scene.getObjectByName(item.node) ?? scene
@@ -281,19 +335,23 @@ function CatalogModelScene({ item, onSelect, onProgress, tool = null, seeThrough
     })
   }, [meshParts, seeThroughParts])
 
-  useMarkerOcclusion({ target, markers, anchors, refs: markerRefs, version: seeThroughParts })
+  // Only the full-model page of a model with an explode clip gets the slider.
+  const explodeClip = item === item.model ? item.model.explode?.clip : null
+  const fitBox = useExplode({ scene, animations, target, clipName: explodeClip, amount: explode })
+
+  useMarkerOcclusion({ target, markers, anchors, refs: markerRefs, version: seeThroughParts, moved: explode })
 
   usePartClicks({ target, meshParts, tool, onSetSeeThrough })
 
   return (
     <Bounds fit clip observe margin={1.25}>
-      <FocusItem scene={scene} item={item} />
+      <FocusItem scene={scene} item={item} fitBox={fitBox} />
       <group>
         <primitive object={scene} />
         {markers.map((child, index) => (
           <Marker
             key={child.node}
-            position={anchors.get(child)}
+            anchor={anchors.get(child)}
             item={child}
             onSelect={onSelect}
             markerRef={(element) => { markerRefs.current[index] = element }}

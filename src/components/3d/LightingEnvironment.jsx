@@ -1,5 +1,4 @@
 import { useEffect } from 'react'
-import { ContactShadows } from '@react-three/drei'
 import { useThree } from '@react-three/fiber'
 import { PMREMGenerator } from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
@@ -44,16 +43,6 @@ export default function LightingEnvironment() {
       <directionalLight position={[-4, 2, -3]} intensity={1.5} color="#c5d4e4" />
       <pointLight position={[0, 5, 1]} intensity={0.7} color="#fff4e6" />
       <StudioEnvironment />
-      <ContactShadows
-        position={[0, -0.91, 0]}
-        opacity={0.33}
-        scale={8}
-        blur={2.8}
-        far={4}
-        resolution={256}
-        frames={1}
-        color="#555149"
-      />
     </>
   )
 }

@@ -37,6 +37,7 @@ The sidebar tree, markers and pages are all generated from the model data, so no
      - `icon`: one of `aircraft`, `engine`, `fan`, `core`, `exhaust`, `part`.
      - `video`: a URL; a "Watch video" link appears when it's set.
      - `displayModes: ['opaque', 'transparent']` on the model: shows **Opaque / Transparent** tools in the viewer. Pick a tool, then click parts of the model: Transparent makes the clicked part see-through, and Opaque makes it solid again. Other parts keep their state. **Reset**, or clicking the active tool again, makes everything solid. Each model, section or part page starts fresh, and nothing carries over between them. See `gas-turbine-cutaway.js`.
+     - `explode: { clip: '<animation name>' }` on the model: adds an **Explode** slider on the full-model page only. It scrubs that GLB animation clip, so 0 is compact and 100 is fully exploded. Markers follow their parts, Opaque / Transparent work at any position, and section and part pages always show the model compact. See `jet-engine-s00564.js`.
 3. **Register it** in `src/data/catalogModels.js`:
    ```js
    import myModel from './models/my-model.js'

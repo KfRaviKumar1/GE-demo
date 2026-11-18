@@ -25,6 +25,10 @@ export default function CatalogScene() {
   const [tool, setTool] = useState(null)
   const [seeThroughParts, setSeeThroughParts] = useState(() => new Set())
   const resetParts = () => setSeeThroughParts(new Set())
+  // Explode slider (0 compact .. 100 fully exploded): only on the full-model
+  // page of models with an `explode` clip; sections and parts stay compact.
+  const hasExplode = Boolean(item && !item.parent && item.model.explode)
+  const [explode, setExplode] = useState(0)
   const pickTool = (mode) => {
     if (tool === mode) {
       // Clicking the active tool again turns it off and resets the model.
@@ -96,8 +100,24 @@ export default function CatalogScene() {
               tool={modes.length ? tool : null}
               seeThroughParts={seeThroughParts}
               onSetSeeThrough={modes.length ? setSeeThrough : undefined}
+              explode={hasExplode ? explode / 100 : 0}
             />
           </CanvasContainer>
+          {hasExplode && (
+            <label className="catalog-explode">
+              <span>Explode</span>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                value={explode}
+                onChange={(event) => setExplode(Number(event.target.value))}
+                aria-label="Explode the model"
+              />
+              <output>{explode}</output>
+            </label>
+          )}
           {modes.length > 0 && (
             <div className="catalog-modes" role="group" aria-label="Display mode">
               {modes.map((mode) => (

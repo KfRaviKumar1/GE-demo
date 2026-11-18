@@ -259,6 +259,10 @@ a { text-decoration: none; }
 .catalog-modes button[aria-pressed="true"] { color: #fff; background: #242520; }
 .catalog-modes { align-items: center; }
 .catalog-modes .catalog-modes-reset { margin-left: 4px; border-left: 1px solid #e1e1df; border-radius: 0 6px 6px 0; }
+.catalog-explode { position: absolute; z-index: 3; right: 16px; bottom: 12px; display: flex; align-items: center; gap: 10px; padding: 7px 12px; border: 1px solid #e1e1df; border-radius: 8px; background: rgba(255,255,255,.92); color: #62635f; font-size: 12px; }
+.catalog-explode input { width: 160px; accent-color: var(--accent); cursor: pointer; }
+.catalog-explode output { min-width: 26px; color: #30312c; font-family: var(--mono); font-size: 11px; text-align: right; }
+@media (max-width: 800px) { .catalog-explode { right: 12px; bottom: 36px; } .catalog-explode input { width: 120px; } }
 .catalog-modes-hint { padding: 0 10px 0 8px; color: #85857c; font-family: var(--mono); font-size: 10px; }
 .catalog-hint { position: absolute; z-index: 3; left: 16px; bottom: 12px; display: flex; align-items: center; gap: 8px; color: #85857c; font-family: var(--mono); font-size: 9px; letter-spacing: .08em; pointer-events: none; }
 .catalog-hint svg { color: #a78361; }
