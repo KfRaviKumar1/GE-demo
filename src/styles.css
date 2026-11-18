@@ -248,7 +248,7 @@ a { text-decoration: none; }
 .sidebar-sublink-active .catalog-num { color: var(--accent); }
 
 /* Catalog page: breadcrumb bar / viewer + info panel / thumbnail strip */
-.catalog-page { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: 100%; min-height: 520px; background: #fff; }
+.catalog-page { position: relative; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: 100%; min-height: 520px; background: #fff; }
 .catalog-topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; padding: 0 20px; border-bottom: 1px solid #e1e1df; }
 .catalog-topbar .breadcrumb { min-width: 0; }
 .catalog-reset { flex: 0 0 auto; padding: 7px 12px; color: #30312c; background: #fff; border: 1px solid #e1e1df; border-radius: 6px; font-size: 12px; }
@@ -288,11 +288,14 @@ a { text-decoration: none; }
 .catalog-video:disabled { color: #9a9b94; background: #ececea; cursor: default; }
 
 /* Hotspot video, shown over the 3D view */
-.video-overlay { position: absolute; z-index: 6; inset: 0; display: grid; place-items: center; padding: 24px; background: rgba(24,25,21,.55); backdrop-filter: blur(4px); animation: video-fade 180ms ease; }
-.video-card { width: min(880px, 100%); overflow: hidden; border: 1px solid rgba(255,255,255,.08); border-radius: 12px; background: #141512; box-shadow: 0 24px 70px rgba(0,0,0,.35); animation: video-rise 220ms ease; }
-.video-card-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 12px 12px 18px; color: #f2f1ec; }
+.video-overlay { position: absolute; z-index: 6; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(24,25,21,.55); backdrop-filter: blur(4px); animation: video-fade 180ms ease; container-type: size; }
+/* Fit the viewer both ways: as wide as possible while the 16:9 video plus its
+   header (~58px) and the overlay padding (32px) still fit the viewer's height. */
+.video-card { width: min(880px, 100%, calc((100cqh - 90px) * 16 / 9)); max-height: 100%; overflow: hidden; border: 1px solid rgba(255,255,255,.08); border-radius: 12px; background: #141512; box-shadow: 0 24px 70px rgba(0,0,0,.35); animation: video-rise 220ms ease; }
+.video-card-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 10px 10px 16px; color: #f2f1ec; }
 .video-card-eyebrow { color: #c9a27a; font-family: var(--mono); font-size: 9px; letter-spacing: .12em; }
-.video-card-header h3 { margin: 4px 0 0; font-family: var(--display); font-size: 16px; font-weight: 600; letter-spacing: -.02em; }
+.video-card-header h3 { margin: 3px 0 0; overflow: hidden; font-family: var(--display); font-size: 15px; font-weight: 600; letter-spacing: -.02em; text-overflow: ellipsis; white-space: nowrap; }
+.video-card-header > div:first-child { min-width: 0; }
 .video-card-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 6px; }
 .video-card-link { display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; color: #c8c7c0; border-radius: 6px; font-size: 11px; text-decoration: none; }
 .video-card-link:hover { color: #fff; background: rgba(255,255,255,.08); }

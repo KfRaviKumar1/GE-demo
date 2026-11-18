@@ -157,7 +157,6 @@ export default function CatalogScene() {
           <div className="catalog-hint">
             <Rotate3D size={14} strokeWidth={1.6} /> DRAG TO ROTATE <span>·</span> SCROLL TO ZOOM <span>·</span> RIGHT-DRAG TO PAN
           </div>
-          {videoOpen && item.video && <VideoPlayer item={item} onClose={closeVideo} />}
         </section>
 
         <aside className="catalog-info">
@@ -189,6 +188,9 @@ export default function CatalogScene() {
           ))}
         </nav>
       )}
+      {/* Covers the whole page area (not just the 3D view) so the video can be
+          as large as the screen allows, also on laptop-height screens. */}
+      {videoOpen && item.video && <VideoPlayer item={item} onClose={closeVideo} />}
     </main>
   )
 }
