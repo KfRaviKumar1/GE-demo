@@ -11,6 +11,8 @@ export default {
   icon: 'engine',
   displayModes: ['opaque', 'transparent'],
   explode: { clip: 'Explode' },
+  // Opening camera angle: side-on, slightly above and toward the intake.
+  view: [-0.15, 0.22, 1],
   description:
     'A 3D model of a turbofan-style jet engine mounted on a steel support stand. The engine is divided into three main sections: the Intake & Fan Section, the Core Section, and the Turbine, Exhaust & Stand Section. Play the Explode animation to separate the engine into its nine components along its length, and the Assemble animation to put it back together. Select a main hotspot to isolate a section, then select one of its sub hotspots to focus on an individual component.',
   children: [
@@ -97,7 +99,7 @@ export default {
           id: '3.1',
           name: 'Turbine Casing',
           node: 'Turbine_Casing',
-          video: '',
+          video: 'https://www.youtube.com/watch?v=js9IA7WthHo',
           description:
             'The lattice-reinforced casing around the turbine stages. It contains the hot gas as it spins the turbines, which in turn drive the fan and compressor.',
         },

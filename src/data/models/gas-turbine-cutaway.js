@@ -59,7 +59,7 @@ export default {
           id: '2.1',
           name: 'Combustion Chamber',
           node: 'Combustion_Chamber',
-          video: '',
+          video: 'https://www.youtube.com/watch?v=R_b968QUh4I',
           description:
             'The combustor liner where fuel and air burn, together with the fuel system ring and nozzles that deliver fuel into it. The liner contains the flame and shields the surrounding parts from the extreme heat.',
         },

@@ -7,7 +7,14 @@ import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.j
 import { acceleratedRaycast, computeBoundsTree } from 'three-mesh-bvh'
 import { ArrowRight } from 'lucide-react'
 
-const VIEW_DIRECTION = new Vector3(1, 0.45, 1).normalize()
+// Direction the camera looks from when a page opens: the standard 3/4 angle,
+// unless the model sets its own `view: [x, y, z]` in its data file.
+const DEFAULT_VIEW = [1, 0.45, 1]
+const viewDirections = new WeakMap()
+function viewDirection(model) {
+  if (!viewDirections.has(model)) viewDirections.set(model, new Vector3(...(model.view ?? DEFAULT_VIEW)).normalize())
+  return viewDirections.get(model)
+}
 const TRANSPARENT_OPACITY = 0.28
 
 const isInside = (object, root) => {
@@ -22,9 +29,9 @@ const MAX_VISIBILITY_TESTS = 5000
 const EYE_DISTANCES = [1.6, 2.4, 3, 4.5, 7]
 const anchorCache = new WeakMap() // catalog item -> Map(child -> anchor point)
 
-// Where a page's camera starts: looking at the target from the standard 3/4 angle.
-function openingEye(sphere, distance = 3) {
-  return sphere.center.clone().addScaledVector(VIEW_DIRECTION, sphere.radius * distance)
+// Where a page's camera starts: looking at the target from the model's opening angle.
+function openingEye(model, sphere, distance = 3) {
+  return sphere.center.clone().addScaledVector(viewDirection(model), sphere.radius * distance)
 }
 
 // Marker anchors for the children of `item`, on the page that shows `item`.
@@ -43,9 +50,9 @@ function computeViewAnchors(item, scene) {
     +(modelSize.y > modelSize.x && modelSize.y >= modelSize.z),
     +(modelSize.z > modelSize.x && modelSize.z > modelSize.y),
   )
-  const toward = new Vector3(0, 1, 0).addScaledVector(VIEW_DIRECTION, 0.6).normalize()
+  const toward = new Vector3(0, 1, 0).addScaledVector(viewDirection(item.model), 0.6).normalize()
   const view = new Box3().setFromObject(target, true).getBoundingSphere(new Sphere())
-  const eyes = EYE_DISTANCES.map((distance) => openingEye(view, distance))
+  const eyes = EYE_DISTANCES.map((distance) => openingEye(item.model, view, distance))
   const tolerance = view.radius * 0.01
   const raycaster = new Raycaster()
   raycaster.firstHitOnly = true
@@ -124,7 +131,7 @@ function FocusItem({ scene, item, fitBox }) {
       // Bounds.fit() keeps the current view direction, so first look at the
       // target from the standard 3/4 angle (models can be far from the origin).
       const sphere = (fitBox ?? new Box3().setFromObject(target, true)).getBoundingSphere(new Sphere())
-      camera.position.copy(openingEye(sphere)) // same viewpoint the marker spots are chosen for
+      camera.position.copy(openingEye(item.model, sphere)) // same viewpoint the marker spots are chosen for
       camera.lookAt(sphere.center)
       controls?.target.copy(sphere.center)
       bounds.refresh(fitBox ?? target).fit().clip()
@@ -402,6 +409,6 @@ export default function CatalogModelViewer(props) {
   )
 }
 
-export function initialCameraPosition(distance = 9) {
-  return VIEW_DIRECTION.clone().multiplyScalar(distance).toArray()
+export function initialCameraPosition(model, distance = 9) {
+  return viewDirection(model).clone().multiplyScalar(distance).toArray()
 }

@@ -1,9 +1,10 @@
-import { Fragment, useState } from 'react'
+import { Fragment, useCallback, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, ChevronRight, Rotate3D } from 'lucide-react'
+import { ArrowLeft, ChevronRight, Play, Rotate3D } from 'lucide-react'
 import CanvasContainer from '../3d/CanvasContainer.jsx'
 import CatalogModelViewer, { initialCameraPosition } from '../3d/CatalogModelViewer.jsx'
 import LightingEnvironment from '../3d/LightingEnvironment.jsx'
+import VideoPlayer from './VideoPlayer.jsx'
 import { catalogPath, getAncestors, getCatalogItem } from '../../data/catalogModels.js'
 
 const MODE_LABELS = { opaque: 'Opaque', transparent: 'Transparent' }
@@ -29,6 +30,9 @@ export default function CatalogScene() {
   // page of models with an `explode` clip; sections and parts stay compact.
   const hasExplode = Boolean(item && !item.parent && item.model.explode)
   const [explode, setExplode] = useState(0)
+  // Hotspot video, played over the 3D view (closed again with the × button).
+  const [videoOpen, setVideoOpen] = useState(false)
+  const closeVideo = useCallback(() => setVideoOpen(false), [])
   const pickTool = (mode) => {
     if (tool === mode) {
       // Clicking the active tool again turns it off and resets the model.
@@ -86,7 +90,7 @@ export default function CatalogScene() {
       <div className="catalog-stage">
         <section className="catalog-viewer">
           <CanvasContainer
-            cameraPosition={initialCameraPosition()}
+            cameraPosition={initialCameraPosition(item.model)}
             cameraNear={0.01}
             cameraFar={100000}
             minDistance={0.001}
@@ -146,6 +150,7 @@ export default function CatalogScene() {
           <div className="catalog-hint">
             <Rotate3D size={14} strokeWidth={1.6} /> DRAG TO ROTATE <span>·</span> SCROLL TO ZOOM <span>·</span> RIGHT-DRAG TO PAN
           </div>
+          {videoOpen && item.video && <VideoPlayer item={item} onClose={closeVideo} />}
         </section>
 
         <aside className="catalog-info">
@@ -153,7 +158,9 @@ export default function CatalogScene() {
           <h2>{item.name}</h2>
           <p>{item.description}</p>
           {item.video && (
-            <a className="catalog-video" href={item.video} target="_blank" rel="noreferrer">▶ Watch video</a>
+            <button type="button" className="catalog-video" onClick={() => setVideoOpen(true)} aria-pressed={videoOpen}>
+              <Play size={14} fill="currentColor" /> Play video
+            </button>
           )}
         </aside>
       </div>
@@ -168,6 +175,7 @@ export default function CatalogScene() {
               aria-current={card === item ? 'page' : undefined}
             >
               <img src={card.thumb} alt="" loading="lazy" />
+              {card.video && <i className="catalog-card-video"><Play size={10} fill="currentColor" /> Video</i>}
               <span><small>{card.id}</small>{card.name}</span>
             </Link>
           ))}

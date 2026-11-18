@@ -22,7 +22,7 @@ export default {
           id: '1.1',
           name: 'Fan Blades',
           node: 'Fan_Blades',
-          video: '',
+          video: 'https://www.youtube.com/watch?v=2Jm5RVHLlcQ',
           description:
             'The ring of wide blades at the front of the engine. As the fan spins, the blades draw in large volumes of air: most of it flows around the core to produce thrust, and the rest is fed into the compressor.',
         },
