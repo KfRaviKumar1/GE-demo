@@ -15,7 +15,8 @@ const assetBase = `${import.meta.env.BASE_URL}models/catalog`
 // Link every item to its parent and model, and fill in asset paths.
 catalogModels.forEach((model) => {
   const base = `${assetBase}/${model.id}`
-  model.file = model.file || `${base}/model.glb`
+  // Builds ship model.glb.gz (see vite.config.js); dev serves model.glb.
+  model.file = model.file || `${base}/model.glb${import.meta.env.PROD ? '.gz' : ''}`
   ;(function walk(item, parent) {
     item.parent = parent
     item.model = model

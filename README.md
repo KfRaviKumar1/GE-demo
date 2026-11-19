@@ -57,6 +57,8 @@ The sidebar tree, markers and pages are all generated from the model data, so no
 
 Each GLB loads on first use and is cached by `useGLTF`.
 
+`npm run build` replaces every `model.glb` in `dist/` with a gzipped `model.glb.gz` (about a third of the size), because static hosts such as Netlify send `.glb` files uncompressed. The viewer unzips it in the browser (`src/components/3d/gzipGLTFLoader.js`). Keep committing plain `model.glb` files; `npm run dev` serves them as they are.
+
 ## Deploy
 
 - **GitHub Pages:** pushing to `main` or `master` deploys through `.github/workflows/deploy.yml`. In the repository, set **Settings → Pages** to **GitHub Actions**. Asset paths use `import.meta.env.BASE_URL`, so the `/<repo>/` project path works.

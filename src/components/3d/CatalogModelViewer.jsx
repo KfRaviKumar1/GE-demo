@@ -2,7 +2,7 @@ import { Component, useEffect, useMemo, useRef } from 'react'
 import { Bounds, Html, useBounds } from '@react-three/drei'
 import { useFrame, useLoader, useThree } from '@react-three/fiber'
 import { AnimationClip, AnimationMixer, Box3, LoopOnce, Raycaster, Sphere, Vector3 } from 'three'
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { GzipGLTFLoader } from './gzipGLTFLoader.js'
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import { acceleratedRaycast, computeBoundsTree } from 'three-mesh-bvh'
 import { ArrowRight } from 'lucide-react'
@@ -354,14 +354,14 @@ function useExplode({ scene, animations, target, clipName, amount }) {
 const useMeshopt = (loader) => loader.setMeshoptDecoder(MeshoptDecoder)
 
 // Starts downloading a model into the same cache the viewer reads from.
-export const preloadModel = (model) => useLoader.preload(GLTFLoader, model.file, useMeshopt)
+export const preloadModel = (model) => useLoader.preload(GzipGLTFLoader, model.file, useMeshopt)
 
 // `tool` is 'transparent', 'opaque' or null; `seeThroughParts` holds the node
 // names of parts currently see-through; `onSetSeeThrough(node, boolean)`;
 // `explode` (0..1) drives the Explode slider on the model's own page.
-function CatalogModelScene({ item, onSelect, onProgress, tool = null, seeThroughParts, onSetSeeThrough, explode = 0 }) {
-  // useLoader (not drei's useGLTF) so download progress can be reported.
-  const { scene, animations } = useLoader(GLTFLoader, item.model.file, useMeshopt, onProgress)
+function CatalogModelScene({ item, onSelect, tool = null, seeThroughParts, onSetSeeThrough, explode = 0 }) {
+  // Download progress is reported through gzipGLTFLoader.js.
+  const { scene, animations } = useLoader(GzipGLTFLoader, item.model.file, useMeshopt)
   useMemo(() => ensureBoundsTrees(scene), [scene]) // before the anchors: they use raycasts
   const anchors = useMemo(() => computeViewAnchors(item, scene), [item, scene])
   const target = scene.getObjectByName(item.node) ?? scene
@@ -434,7 +434,7 @@ class ModelLoadBoundary extends Component {
 
   // Forget the failed download (e.g. a dropped connection) and load again.
   retry = () => {
-    useLoader.clear(GLTFLoader, this.props.url)
+    useLoader.clear(GzipGLTFLoader, this.props.url)
     this.setState({ hasError: false })
   }
 

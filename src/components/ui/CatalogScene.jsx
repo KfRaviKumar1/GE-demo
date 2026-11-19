@@ -1,9 +1,10 @@
-import { Fragment, useCallback, useEffect, useState } from 'react'
+import { Fragment, useCallback, useEffect, useState, useSyncExternalStore } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, ChevronRight, Play, Rotate3D } from 'lucide-react'
 import CanvasContainer from '../3d/CanvasContainer.jsx'
 import CatalogModelViewer, { initialCameraPosition } from '../3d/CatalogModelViewer.jsx'
 import LightingEnvironment from '../3d/LightingEnvironment.jsx'
+import { getDownloadProgress, subscribeDownloadProgress } from '../3d/gzipGLTFLoader.js'
 import VideoPlayer from './VideoPlayer.jsx'
 import { catalogPath, getAncestors, getCatalogItem } from '../../data/catalogModels.js'
 
@@ -16,8 +17,8 @@ export default function CatalogScene() {
   const { modelId, nodeId } = useParams()
   const navigate = useNavigate()
   const item = getCatalogItem(modelId, nodeId)
-  // Download progress of the model's GLB (null when it is already cached).
-  const [progress, setProgress] = useState(null)
+  // Download progress of the model's GLB (null before it starts, 100 once done).
+  const progress = useSyncExternalStore(subscribeDownloadProgress, () => getDownloadProgress(item?.model.file))
   // Models that list `displayModes` get Opaque / Transparent tools: pick one,
   // then click parts of the model to apply it to just those parts.
   // State is per component page: opening another model, section or part
@@ -107,7 +108,6 @@ export default function CatalogScene() {
             <CatalogModelViewer
               item={item}
               onSelect={(child) => navigate(catalogPath(child), { state: { playVideo: Boolean(child.video) } })}
-              onProgress={(event) => event.total && setProgress(Math.round((event.loaded / event.total) * 100))}
               tool={modes.length ? tool : null}
               seeThroughParts={seeThroughParts}
               onSetSeeThrough={modes.length ? setSeeThrough : undefined}
